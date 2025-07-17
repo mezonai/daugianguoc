@@ -1,0 +1,51 @@
+import { OnEvent } from '@nestjs/event-emitter';
+import { Events } from 'mezon-sdk';
+import { Injectable } from '@nestjs/common';
+import { RoleService } from '../commands/selfAssignableRoles/role.service';
+import { DauGiaService } from '../commands/auction/auction.service';
+
+@Injectable()
+export class ListenerMessageButtonClicked {
+  constructor(
+    private roleService: RoleService,
+    private dauGiaService: DauGiaService,
+  ) {}
+
+  @OnEvent(Events.MessageButtonClicked)
+  async hanndleButtonForm(data) {
+    console.log('data', data);
+    try {
+      const args = data.button_id.split('_');
+      const buttonConfirmType = args[0];
+
+      console.log(buttonConfirmType);
+      switch (buttonConfirmType) {
+        case 'role':
+          this.handleSelectRole(data);
+          break;
+        case 'daugia':
+          this.handleDaugia(data);
+        default:
+          break;
+      }
+    } catch (error) {
+      console.log('hanndleButtonForm ERROR', error);
+    }
+  }
+
+  async handleSelectRole(data) {
+    try {
+      await this.roleService.handleSelectRole(data);
+    } catch (error) {
+      console.log('ERORR handleSelectPoll', error);
+    }
+  }
+
+  async handleDaugia(data) {
+    try {
+      await this.dauGiaService.handleSelectDauGia(data);
+    } catch (error) {
+      console.log('ERORR handleSelectPoll', error);
+    }
+  }
+}
