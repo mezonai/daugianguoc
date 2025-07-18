@@ -17,18 +17,7 @@ import { Daugia } from 'src/bot/models/daugia.entity';
 @Injectable()
 export class DauGiaService {
   private client: MezonClient;
-  private lixiCanceled: Map<string, boolean> = new Map();
-
-  private lixiClickQueue: Map<
-    string,
-    { user_id: string; username: string; timestamp: number }[]
-  > = new Map();
-  private lixiProcessingTimeouts: Map<string, NodeJS.Timeout> = new Map();
-  private lixiCompleted: Map<string, boolean> = new Map();
-  private lixiProcessing: Map<string, boolean> = new Map();
-
   constructor(
-    @InjectRepository(User) private userRepository: Repository<User>,
     @InjectRepository(Daugia) private daugiaRepository: Repository<Daugia>,
     private clientService: MezonClientService,
   ) {
@@ -80,7 +69,6 @@ export class DauGiaService {
              -[Tên sản phẩm]: phải có value
              -[Mô tả]: phải có value
              -[Ảnh]: link ảnh
-             -[Ngày giờ]: phải đầy đủ ngày và giờ 
              -[Giá khởi điểm]: phải là số > 1000 và là số nguyên chẵn
              -[Thời gian phiên đấu giá]: phải là bội số của 5
             `;
@@ -103,7 +91,6 @@ export class DauGiaService {
       image,
       createby: authId,
       clan_id: clanId,
-      datetime,
       startPrice: price,
       time,
     });
@@ -157,9 +144,6 @@ export class DauGiaService {
       if (!data.user_id) return;
 
       switch (typeButtonRes) {
-        case EmbebButtonType.CANCEL:
-          await this.handleCancelLixi(data, authId);
-          break;
         case EmbebButtonType.SUBMITCREATE:
           await this.handleSubmitCreate(
             data,
@@ -171,31 +155,11 @@ export class DauGiaService {
             color,
           );
           break;
-        // case EmbebButtonType.LIXI:
-        //   break;
         default:
           break;
       }
     } catch (error) {
       console.error('Error in handleSelectLixi:', error);
-    }
-  }
-
-  private async handleCancelLixi(data: any, authId: string) {
-    if (data.user_id !== authId) return;
-    try {
-      const channel = await this.client.channels.fetch(data.channel_id);
-      const messsage = await channel.messages.fetch(data.message_id);
-
-      const textCancel = 'Cancel đấu giá!';
-      const msgCancel = {
-        t: textCancel,
-        mk: [{ type: EMarkdownType.PRE, s: 0, e: textCancel.length }],
-      };
-
-      await messsage.update(msgCancel);
-    } catch (error) {
-      console.error('Error cancelling lixi:', error);
     }
   }
 }

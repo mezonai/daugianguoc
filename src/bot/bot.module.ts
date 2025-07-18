@@ -30,12 +30,15 @@ import { BlockRut } from './models/blockrut.entity';
 import { DauGiaCommand } from './commands/auction/auction.command';
 import { DauGiaService } from './commands/auction/auction.service';
 import { Daugia } from './models/daugia.entity';
-
+import { DauGiaStartCommand } from './commands/auction/auctionStart.command';
+import { ScheduleModule } from '@nestjs/schedule';
+import { DauGiaStartService } from './commands/auction/auctionStart.service';
 @Module({
   imports: [
     MulterModule.register({
       dest: './files',
     }),
+    ScheduleModule.forRoot(),
     DiscoveryModule,
     TypeOrmModule.forFeature([User, WelcomeMessage, BlockRut, Daugia]),
     HttpModule,
@@ -61,6 +64,8 @@ import { Daugia } from './models/daugia.entity';
     DauGiaService,
     // UnbanCommand,
     DauGiaCommand,
+    DauGiaStartCommand,
+    DauGiaStartService,
   ],
   controllers: [],
 })

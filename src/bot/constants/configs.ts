@@ -45,6 +45,8 @@ export enum EmbebButtonType {
   SELL = 'SELL',
   DONE = 'DONE',
   BUY = 'BUY',
+  THAMGIA = 'THAMGIA',
+  USERJOIN = 'USERJOIN',
 }
 
 export enum FuncType {

@@ -31,18 +31,16 @@ export class DauGiaCommand extends CommandMessage {
   async execute(args: string[], message: ChannelMessage) {
     const messageChannel = await this.getChannelMessage(message);
 
-    const now = new Date();
-    now.setSeconds(0, 0);
+    // const now = new Date();
+    // now.setSeconds(0, 0);
 
-    const toISOStringLocal = (date: Date) => {
-      const offset = date.getTimezoneOffset();
-      const local = new Date(date.getTime() - offset * 60 * 1000);
-      return local.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
-    };
+    // const toISOStringLocal = (date: Date) => {
+    //   const offset = date.getTimezoneOffset();
+    //   const local = new Date(date.getTime() - offset * 60 * 1000);
+    //   return local.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
+    // };
 
-    const minValue = toISOStringLocal(now);
-
-    console.log(minValue);
+    // const minValue = toISOStringLocal(now);
 
     const embed: EmbedProps[] = [
       {
@@ -90,21 +88,21 @@ export class DauGiaCommand extends CommandMessage {
               },
             },
           },
-          {
-            name: 'Ngày & Giờ Đấu Giá:',
-            value: '',
-            inputs: {
-              id: `daugia-${message.message_id}-datetime-ip`,
-              type: EMessageComponentType.INPUT,
-              component: {
-                id: `daugia-${message.message_id}-datetime-plhder`,
-                required: true,
-                type: 'datetime-local',
-                min: minValue,
-                defaultValue: minValue,
-              },
-            },
-          },
+          // {
+          //   name: 'Ngày & Giờ Đấu Giá:',
+          //   value: '',
+          //   inputs: {
+          //     id: `daugia-${message.message_id}-datetime-ip`,
+          //     type: EMessageComponentType.INPUT,
+          //     component: {
+          //       id: `daugia-${message.message_id}-datetime-plhder`,
+          //       required: true,
+          //       type: 'datetime-local',
+          //       min: minValue,
+          //       defaultValue: minValue,
+          //     },
+          //   },
+          // },
           {
             name: 'Giá khởi điểm:',
             value: '',

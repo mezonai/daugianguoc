@@ -3,12 +3,14 @@ import { Events } from 'mezon-sdk';
 import { Injectable } from '@nestjs/common';
 import { RoleService } from '../commands/selfAssignableRoles/role.service';
 import { DauGiaService } from '../commands/auction/auction.service';
+import { DauGiaStartService } from '../commands/auction/auctionStart.service';
 
 @Injectable()
 export class ListenerMessageButtonClicked {
   constructor(
     private roleService: RoleService,
     private dauGiaService: DauGiaService,
+    private dauGiaStartService: DauGiaStartService,
   ) {}
 
   @OnEvent(Events.MessageButtonClicked)
@@ -25,6 +27,13 @@ export class ListenerMessageButtonClicked {
           break;
         case 'daugia':
           this.handleDaugia(data);
+          break;
+        case 'joinauction':
+          this.handleJoinAuction(data);
+          break;
+        case 'userjoinauction':
+          this.handleUserJoinAuction(data);
+          break;
         default:
           break;
       }
@@ -44,6 +53,21 @@ export class ListenerMessageButtonClicked {
   async handleDaugia(data) {
     try {
       await this.dauGiaService.handleSelectDauGia(data);
+    } catch (error) {
+      console.log('ERORR handleSelectPoll', error);
+    }
+  }
+  async handleJoinAuction(data) {
+    try {
+      await this.dauGiaStartService.handleJoinAuction(data);
+    } catch (error) {
+      console.log('ERORR handleSelectPoll', error);
+    }
+  }
+
+  async handleUserJoinAuction(data) {
+    try {
+      await this.dauGiaStartService.handleUserJoinAuction(data);
     } catch (error) {
       console.log('ERORR handleSelectPoll', error);
     }
