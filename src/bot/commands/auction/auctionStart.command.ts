@@ -130,7 +130,7 @@ export class DauGiaStartCommand extends CommandMessage {
       async () => {
         await callback(messsageReply);
       },
-      1 * 60 * 1000,
+      daugia.time * 60 * 1000,
     );
 
     this.schedulerRegistry.addTimeout(timeoutName, timeout);
