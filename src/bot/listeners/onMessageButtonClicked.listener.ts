@@ -15,12 +15,10 @@ export class ListenerMessageButtonClicked {
 
   @OnEvent(Events.MessageButtonClicked)
   async hanndleButtonForm(data) {
-    console.log('data', data);
     try {
       const args = data.button_id.split('_');
       const buttonConfirmType = args[0];
 
-      console.log(buttonConfirmType);
       switch (buttonConfirmType) {
         case 'role':
           this.handleSelectRole(data);

@@ -19,23 +19,25 @@ import { MezonClientService } from 'src/mezon/services/mezon-client.service';
 import { Daugia } from 'src/bot/models/daugia.entity';
 import { ConfigService } from '@nestjs/config';
 import { getRandomColor } from 'src/bot/utils/helps';
+import { BillAuction } from 'src/bot/models/billauction.entity';
+
+interface JoinType {
+  user_id: string;
+  username: string;
+  price: number;
+  numberAuction: number;
+}
 
 @Injectable()
 export class DauGiaStartService {
   private client: MezonClient;
-  private lixiCanceled: Map<string, boolean> = new Map();
-
-  private lixiClickQueue: Map<
-    string,
-    { user_id: string; username: string; timestamp: number }[]
-  > = new Map();
-  private lixiProcessingTimeouts: Map<string, NodeJS.Timeout> = new Map();
-  private lixiCompleted: Map<string, boolean> = new Map();
-  private lixiProcessing: Map<string, boolean> = new Map();
+  private ClickQueue: Map<string, JoinType> = new Map();
 
   constructor(
     @InjectRepository(User) private userRepository: Repository<User>,
     @InjectRepository(Daugia) private daugiaRepository: Repository<Daugia>,
+    @InjectRepository(BillAuction)
+    private billAuctionRepository: Repository<BillAuction>,
     private clientService: MezonClientService,
     private configService: ConfigService,
   ) {
@@ -54,8 +56,6 @@ export class DauGiaStartService {
     startPrice,
     minPrice,
   ) {
-    console.log('data', data);
-
     if (data.user_id === authId) {
       return;
     }
@@ -63,11 +63,11 @@ export class DauGiaStartService {
 
     const channel = await this.client.channels.fetch(data.channel_id);
 
+    const auctioneer = await channel.clan.users.fetch(data.user_id);
+
     const findUser = await this.userRepository.findOne({
       where: { user_id: data.user_id },
     });
-
-    console.log('asadsa', findUser);
 
     const bot = await this.userRepository.findOne({
       where: { user_id: this.configService.get('BOT_ID') },
@@ -95,7 +95,7 @@ export class DauGiaStartService {
     }
 
     findUser.amount -= feeAuction;
-    bot.amount += feeAuction;
+    bot.amount = Number(bot.amount) + feeAuction;
 
     await this.userRepository.save([findUser, bot]);
 
@@ -114,8 +114,6 @@ export class DauGiaStartService {
                 component: {
                   id: `userjoinauction-${data.user_id}-name-plhder`,
                   placeholder: 'Ex. Write something',
-                  required: true,
-                  textarea: true,
                   defaultValue: nameProduct,
                   disabled: true,
                 },
@@ -145,7 +143,7 @@ export class DauGiaStartService {
         {
           components: [
             {
-              id: `userjoinauction_CANCEL_${data.user_id}_${data.channel_id}_${getRandomColor()}_${data.message_id}`,
+              id: `userjoinauction_CANCEL_${data.user_id}_${data.channel_id}_${getRandomColor()}_${data.message_id}_${minPrice}_${startPrice}`,
               type: EMessageComponentType.BUTTON,
               component: {
                 label: `Cancel`,
@@ -153,7 +151,7 @@ export class DauGiaStartService {
               },
             },
             {
-              id: `userjoinauction_SUBMITCREATE_${data.user_id}_${data.channel_id}_${getRandomColor()}_${data.message_id}`,
+              id: `userjoinauction_SUBMITCREATE_${data.user_id}_${data.channel_id}_${getRandomColor()}_${data.message_id}_${minPrice}_${startPrice}`,
               type: EMessageComponentType.BUTTON,
               component: {
                 label: `Send`,
@@ -164,7 +162,7 @@ export class DauGiaStartService {
         },
       ];
 
-      await channel.sendEphemeral(data.user_id, {
+      await auctioneer.sendDM({
         embed,
         components,
       });
@@ -205,8 +203,7 @@ export class DauGiaStartService {
             minPrice,
           );
           break;
-        // case EmbebButtonType.LIXI:
-        //   break;
+
         default:
           break;
       }
@@ -217,23 +214,17 @@ export class DauGiaStartService {
 
   async handleUserJoinAuction(data: any) {
     try {
-      const channel = await this.client.channels.fetch(data.channel_id);
-
       const [
         _,
         typeButtonRes,
         authId,
-        clanId,
-        mode,
-        isPublic,
+        channel_id,
         color,
         message_id,
-        nameProduct,
-        startPrice,
         minPrice,
+        startPrice,
+        nameProduct,
       ] = data.button_id.split('_');
-
-      console.log('case', typeButtonRes);
 
       if (!data.user_id) return;
       switch (typeButtonRes) {
@@ -241,78 +232,137 @@ export class DauGiaStartService {
           await this.handleUserSubmit(
             data,
             authId,
-            message_id,
-            clanId,
-            mode,
-            isPublic,
+            channel_id,
             color,
-            nameProduct,
-            startPrice,
+            message_id,
             minPrice,
+            startPrice,
+            nameProduct,
           );
           break;
         case EmbebButtonType.CANCEL:
-          this.handleCancel(
-            data,
-            authId,
-            message_id,
-            clanId,
-            mode,
-            isPublic,
-            color,
-            nameProduct,
-            startPrice,
-            minPrice,
-          );
+          this.handleCancel(data, authId, channel_id, color, message_id);
           break;
         default:
           break;
       }
-
-      console.log(data);
     } catch (error) {
       console.error('Error in handleUserJoinAuction:', error);
     }
   }
 
-  async handleCancel(
-    data,
-    authId,
-    message_id,
-    clanId,
-    mode,
-    isPublic,
-    color,
-    nameProduct,
-    startPrice,
-    minPrice,
-  ) {
+  async handleCancel(data, authId, channel_id, color, message_id) {
     try {
       const channel = await this.client.channels.fetch(data.channel_id);
+      const message = await channel.messages.fetch(data.message_id);
 
-      const context = 'bạn đã hủy tham gia đấu giá';
-      const aa = await channel.sendEphemeral(data.user_id, {
+      const context = 'Bạn đã hủy tham gia đấu giá';
+      await message.update({
         t: context,
         mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
       });
-
-      console.log('dsadsvada', aa);
-    } catch (error) {}
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   async handleUserSubmit(
     data,
     authId,
-    message_id,
-    clanId,
-    mode,
-    isPublic,
+    channel_id,
     color,
-    nameProduct,
-    startPrice,
+    message_id,
     minPrice,
+    startPrice,
+    nameProduct,
   ) {
     try {
-    } catch (error) {}
+      const channel = await this.client.channels.fetch(channel_id);
+      const channelDM = await this.client.channels.fetch(data.channel_id);
+      const message = await channelDM.messages.fetch(data.message_id);
+      const user = await this.userRepository.findOne({
+        where: { user_id: data.user_id },
+      });
+
+      const product = await this.daugiaRepository.findOne({
+        where: { name: nameProduct, isDelete: false },
+      });
+
+      if (!product) {
+        const content = 'Product available';
+        return await message.update({
+          t: content,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],
+        });
+      }
+
+      if (!user) {
+        const content = 'User not available';
+        return await message.update({
+          t: content,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],
+        });
+      }
+      let parsedExtraData;
+
+      try {
+        parsedExtraData = JSON.parse(data.extra_data);
+        const priceStr =
+          parsedExtraData[`userjoinauction-${data.user_id}-price-ip`] || '0';
+
+        const price = Number(priceStr);
+
+        if (
+          Number(user.amount) < price ||
+          price > Number(startPrice) ||
+          Number(user.amount) < Number(minPrice) ||
+          price < Number(minPrice) ||
+          price % 1000 !== 0
+        ) {
+          const content = `[Thamgiadaugia]
+            -[User]: mount >= price
+            -[Giá]: phải > ${minPrice} , < ${startPrice} và là số nguyên bội số của 1000 `;
+
+          return await message.update({
+            t: content,
+            mk: [
+              {
+                type: EMarkdownType.PRE,
+                s: 0,
+                e: content.length,
+              },
+            ],
+          });
+        }
+
+        user.amount = Number(user.amount) - price;
+
+        const newBill = await this.billAuctionRepository.create({
+          auction: { daugia_id: product.daugia_id } as Daugia,
+          userAuction: { user_id: data.user_id } as User,
+          blockMount: price,
+        });
+        await this.billAuctionRepository.save(newBill);
+        await this.userRepository.save(user);
+        const context = 'bạn đã đấu giá sản phầm với giá : ' + price;
+        await message.update({
+          t: context,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+        });
+        const content = user.username + ' đã tham gia đấu giá';
+        return await channel.send({
+          t: content,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],
+        });
+      } catch (error) {
+        const content = 'Invalid form data provided';
+        return await message.update({
+          t: content,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],
+        });
+      }
+    } catch (error) {
+      console.log(error);
+    }
   }
 }

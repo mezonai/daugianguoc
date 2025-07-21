@@ -128,6 +128,26 @@ export class DauGiaService {
     return;
   }
 
+  async handleSubmitCancel(
+    data,
+    authId,
+    msgId,
+    clan_id,
+    mode,
+    is_public,
+    color,
+  ) {
+    try {
+      const channel = await this.client.channels.fetch(data.channel_id);
+      const message = await channel.messages.fetch(data.message_id);
+      const context = 'Bạn đã hủy tạo phiên đấu giá';
+      await message.update({
+        t: context,
+        mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+      });
+    } catch (error) {}
+  }
+
   async handleSelectDauGia(data: any) {
     try {
       const [
@@ -146,6 +166,17 @@ export class DauGiaService {
       switch (typeButtonRes) {
         case EmbebButtonType.SUBMITCREATE:
           await this.handleSubmitCreate(
+            data,
+            authId,
+            message_id,
+            clanId,
+            mode,
+            isPublic,
+            color,
+          );
+          break;
+        case EmbebButtonType.CANCEL:
+          await this.handleSubmitCancel(
             data,
             authId,
             message_id,

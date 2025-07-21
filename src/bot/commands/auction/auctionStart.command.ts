@@ -19,6 +19,8 @@ import {
 import { getRandomColor } from 'src/bot/utils/helps';
 import { Daugia } from 'src/bot/models/daugia.entity';
 import { SchedulerRegistry } from '@nestjs/schedule';
+import { BillAuction } from 'src/bot/models/billauction.entity';
+import { ConfigService } from '@nestjs/config';
 
 @Command('start')
 export class DauGiaStartCommand extends CommandMessage {
@@ -27,14 +29,23 @@ export class DauGiaStartCommand extends CommandMessage {
     private userRepository: Repository<User>,
     @InjectRepository(Daugia)
     private dauGiaRepository: Repository<Daugia>,
+    @InjectRepository(BillAuction)
+    private billAuctionRepository: Repository<BillAuction>,
     clientService: MezonClientService,
     private schedulerRegistry: SchedulerRegistry,
+    private configService: ConfigService,
   ) {
     super(clientService);
   }
 
   async execute(args: string[], message: ChannelMessage) {
     const messageChannel = await this.getChannelMessage(message);
+
+    const bot = await this.userRepository.findOne({
+      where: { user_id: this.configService.get('BOT_ID') },
+    });
+
+    if (!bot) return;
 
     const daugia = await this.dauGiaRepository.findOne({
       where: {
@@ -117,6 +128,98 @@ export class DauGiaStartCommand extends CommandMessage {
     const messsageReply = await channel.messages.fetch(messages?.message_id);
 
     const callback = async (messsageReply: any) => {
+      const bills = await this.billAuctionRepository.find({
+        where: {
+          auction: { daugia_id: daugia.daugia_id },
+          isDelete: false,
+        },
+        relations: ['userAuction', 'auction'],
+      });
+
+      if (bills.length === 0) {
+        const content = 'Phiên đấu giá đã kết thúc!';
+        await messsageReply.update({
+          t: content,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],
+        });
+
+        const context = 'Không có người tham gia đấu giá.';
+        await channel.send({
+          t: context,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+        });
+
+        return;
+      }
+
+      const blockMountCount: Record<number, number> = {};
+      for (const bill of bills) {
+        blockMountCount[bill.blockMount] =
+          (blockMountCount[bill.blockMount] || 0) + 1;
+      }
+
+      const uniqueBlockMounts = Object.entries(blockMountCount)
+        .filter(([_, count]) => count === 1)
+        .map(([blockMount]) => Number(blockMount));
+
+      if (uniqueBlockMounts.length === 0) {
+        const context = 'Không có mức giá nào là duy nhất.';
+        await channel.send({
+          t: context,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+        });
+      }
+
+      const minUniqueBlockMount = Math.min(...uniqueBlockMounts);
+      const winningBill = bills.find(
+        (b) => b.blockMount === minUniqueBlockMount,
+      );
+
+      if (winningBill) {
+        daugia.buyer = winningBill.userAuction;
+        daugia.purchase = winningBill.blockMount;
+
+        await this.dauGiaRepository.save(daugia);
+        bot.amount = Number(bot.amount) + Number(winningBill.blockMount);
+
+        await this.userRepository.save(bot);
+
+        const losingBills = bills.filter(
+          (b) => b.blockMount !== minUniqueBlockMount,
+        );
+
+        const refundMap: Map<string, number> = new Map();
+        for (const bill of losingBills) {
+          const userId = bill.userAuction.user_id;
+          const amount = refundMap.get(userId) || 0;
+          refundMap.set(userId, amount + bill.blockMount);
+        }
+        for (const [userId, refundAmount] of refundMap.entries()) {
+          const user = await this.userRepository.findOne({
+            where: { user_id: userId },
+          });
+          if (user) {
+            user.amount = Number(user.amount) + Number(refundAmount);
+            await this.userRepository.save(user);
+          }
+        }
+
+        const content = `Xin chúc mừng ${winningBill?.userAuction.username} đã đấu giá thành công với giá ${winningBill?.blockMount.toLocaleString('vi-VN')}đ`;
+
+        await channel.send({
+          t: content,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],
+        });
+      }
+
+      await this.billAuctionRepository
+        .createQueryBuilder()
+        .update()
+        .set({ isDelete: true })
+        .where('auction_id = :auctionId', { auctionId: daugia.daugia_id })
+        .andWhere('isDelete = false')
+        .execute();
+
       const context = 'Phiên đấu giá đã kết thúc!';
       await messsageReply.update({
         t: context,
@@ -130,7 +233,7 @@ export class DauGiaStartCommand extends CommandMessage {
       async () => {
         await callback(messsageReply);
       },
-      daugia.time * 60 * 1000,
+      1 * 60 * 1000,
     );
 
     this.schedulerRegistry.addTimeout(timeoutName, timeout);

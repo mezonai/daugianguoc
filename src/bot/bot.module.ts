@@ -33,6 +33,7 @@ import { Daugia } from './models/daugia.entity';
 import { DauGiaStartCommand } from './commands/auction/auctionStart.command';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DauGiaStartService } from './commands/auction/auctionStart.service';
+import { BillAuction } from './models/billauction.entity';
 @Module({
   imports: [
     MulterModule.register({
@@ -40,7 +41,13 @@ import { DauGiaStartService } from './commands/auction/auctionStart.service';
     }),
     ScheduleModule.forRoot(),
     DiscoveryModule,
-    TypeOrmModule.forFeature([User, WelcomeMessage, BlockRut, Daugia]),
+    TypeOrmModule.forFeature([
+      User,
+      WelcomeMessage,
+      BlockRut,
+      Daugia,
+      BillAuction,
+    ]),
     HttpModule,
   ],
   providers: [

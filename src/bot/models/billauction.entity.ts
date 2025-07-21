@@ -12,8 +12,8 @@ import { User } from './user.entity';
 import { TABLE } from '../constants/tables';
 import { Daugia } from './daugia.entity';
 
-@Index(['daugia_id'])
-@Entity(TABLE.DAUGIA)
+@Index(['billauction_id'])
+@Entity(TABLE.BILLAUCTION)
 export class BillAuction {
   @PrimaryGeneratedColumn()
   billauction_id: number;
@@ -27,10 +27,7 @@ export class BillAuction {
   userAuction: User;
 
   @Column({ nullable: true })
-  blockMount: string;
-
-  @Column({ nullable: true })
-  numberAuction: number;
+  blockMount: number;
 
   @Column({ default: false })
   isDelete: boolean;
