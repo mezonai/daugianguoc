@@ -21,6 +21,7 @@ import { Daugia } from 'src/bot/models/daugia.entity';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { BillAuction } from 'src/bot/models/billauction.entity';
 import { ConfigService } from '@nestjs/config';
+import { MessageQueue } from 'src/bot/messageQueue/messageQueue';
 
 @Command('start')
 export class DauGiaStartCommand extends CommandMessage {
@@ -34,6 +35,7 @@ export class DauGiaStartCommand extends CommandMessage {
     clientService: MezonClientService,
     private schedulerRegistry: SchedulerRegistry,
     private configService: ConfigService,
+    private messageQueue: MessageQueue,
   ) {
     super(clientService);
   }
@@ -41,13 +43,31 @@ export class DauGiaStartCommand extends CommandMessage {
   async execute(args: string[], message: ChannelMessage) {
     const messageChannel = await this.getChannelMessage(message);
 
-    const bot = await this.userRepository.findOne({
-      where: { user_id: this.configService.get('BOT_ID') },
-    });
+    if (args[0]) {
+      const daugia = await this.dauGiaRepository.findOne({
+        where: {
+          createby: {
+            user_id: message.sender_id,
+          },
+          name: args[0],
+          isDelete: false,
+        },
+        relations: ['createby'],
+      });
 
-    if (!bot) return;
+      if (!daugia) {
+        const context =
+          'Bạn không có phiên đấu giá nào ! vui lòng xem lại tên sản phẩm ';
+        return await messageChannel?.reply({
+          t: context,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+        });
+      }
+      await this.sendMessageNotification(message, daugia);
+      return this.startAuctionSession(daugia, message);
+    }
 
-    const daugia = await this.dauGiaRepository.findOne({
+    const daugiaList = await this.dauGiaRepository.find({
       where: {
         createby: {
           user_id: message.sender_id,
@@ -57,14 +77,38 @@ export class DauGiaStartCommand extends CommandMessage {
       relations: ['createby'],
     });
 
-    if (!daugia) {
+    if (daugiaList.length === 0) {
       const context = 'Bạn không có phiên đấu giá nào !';
       return await messageChannel?.reply({
         t: context,
         mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
       });
     }
+    if (daugiaList.length === 1) {
+      await this.sendMessageNotification(message, daugiaList[0]);
+      return this.startAuctionSession(daugiaList[0], message);
+    }
 
+    if (daugiaList.length > 1) {
+      const dauGiaNames = daugiaList
+        .map((dg, i) => `${i + 1}. ${dg.name}`)
+        .join('\n');
+      const context = `Bạn có nhiều phiên đấu giá đang hoạt động:\n${dauGiaNames} \n vui lòng dùng command $start [tên sản phẩm] để bắt đầu phiên đấu giá`;
+      return await messageChannel?.reply({
+        t: context,
+        mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+      });
+    } else {
+      const context = 'Bạn không có phiên đấu giá nào !';
+      return await messageChannel?.reply({
+        t: context,
+        mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+      });
+    }
+  }
+
+  async startAuctionSession(daugia: Daugia, message: ChannelMessage) {
+    const messageChannel = await this.getChannelMessage(message);
     const embed: EmbedProps[] = [
       {
         color: getRandomColor(),
@@ -85,7 +129,17 @@ export class DauGiaStartCommand extends CommandMessage {
             value: '',
           },
           {
-            name: 'Giá khởi điểm: ' + daugia?.startPrice?.toString() + ' đ',
+            name:
+              'Giá khởi điểm: ' +
+              daugia?.startPrice?.toLocaleString('vi-VN') +
+              'đ',
+            value: '',
+          },
+          {
+            name:
+              'Giá tối thiểu: ' +
+              daugia?.minPrice?.toLocaleString('vi-VN') +
+              'đ',
             value: '',
           },
           {
@@ -128,6 +182,11 @@ export class DauGiaStartCommand extends CommandMessage {
     const messsageReply = await channel.messages.fetch(messages?.message_id);
 
     const callback = async (messsageReply: any) => {
+      const bot = await this.userRepository.findOne({
+        where: { user_id: this.configService.get('BOT_ID') },
+      });
+
+      if (!bot) return;
       const bills = await this.billAuctionRepository.find({
         where: {
           auction: { daugia_id: daugia.daugia_id },
@@ -178,10 +237,9 @@ export class DauGiaStartCommand extends CommandMessage {
       if (winningBill) {
         daugia.buyer = winningBill.userAuction;
         daugia.purchase = winningBill.blockMount;
-
+        daugia.isDelete = true;
         await this.dauGiaRepository.save(daugia);
         bot.amount = Number(bot.amount) + Number(winningBill.blockMount);
-
         await this.userRepository.save(bot);
 
         const losingBills = bills.filter(
@@ -193,7 +251,11 @@ export class DauGiaStartCommand extends CommandMessage {
           const userId = bill.userAuction.user_id;
           const amount = refundMap.get(userId) || 0;
           refundMap.set(userId, amount + bill.blockMount);
+
+          bill.blockMount = 0;
+          await this.billAuctionRepository.save(bill);
         }
+
         for (const [userId, refundAmount] of refundMap.entries()) {
           const user = await this.userRepository.findOne({
             where: { user_id: userId },
@@ -233,9 +295,39 @@ export class DauGiaStartCommand extends CommandMessage {
       async () => {
         await callback(messsageReply);
       },
-      1 * 60 * 1000,
+      (daugia.time || 15) * 60 * 1000,
     );
 
     this.schedulerRegistry.addTimeout(timeoutName, timeout);
+  }
+
+  async sendMessageNotification(message: ChannelMessage, daugia: Daugia) {
+    const channel = await this.client.channels.fetch(message.channel_id);
+
+    // aw
+    const messageContent = '@here Phiên đấu giá ' + daugia.name + ' đã bắt đầu';
+    console.log('messageContent', messageContent);
+
+    const replyMessage = {
+      clan_id: message.clan_id,
+      channel_id: message.channel_id,
+      is_public: message.is_public,
+      is_parent_public: true,
+      parent_id: 0,
+      mode: message.mode,
+      sg: {
+        t: messageContent,
+        hg: [
+          {
+            channelid: message?.channel_id,
+            s: messageContent.length,
+            e: messageContent.length,
+          },
+        ],
+      },
+      // mentions: [{ user_id: this.configClient.hereUserId, s: 0, e: 5 }],
+      mention_everyone: true,
+    };
+    await this.messageQueue.addMessage(replyMessage);
   }
 }

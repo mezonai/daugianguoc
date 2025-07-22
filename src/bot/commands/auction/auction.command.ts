@@ -118,7 +118,21 @@ export class DauGiaCommand extends CommandMessage {
             },
           },
           {
-            name: 'Thời gian phiên đấu giá:',
+            name: 'Giá Tối Thiểu:',
+            value: '',
+            inputs: {
+              id: `daugia-${message.message_id}-minPrice-ip`,
+              type: EMessageComponentType.INPUT,
+              component: {
+                id: `daugia-${message.message_id}-minPrice-plhder`,
+                required: true,
+                defaultValue: 10000,
+                type: 'number',
+              },
+            },
+          },
+          {
+            name: 'Thời gian phiên đấu giá (phút):',
             value: '',
             inputs: {
               id: `daugia-${message.message_id}-time-ip`,

@@ -34,6 +34,7 @@ import { DauGiaStartCommand } from './commands/auction/auctionStart.command';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DauGiaStartService } from './commands/auction/auctionStart.service';
 import { BillAuction } from './models/billauction.entity';
+import { AccBalanceCommand } from './commands/system/system.command';
 @Module({
   imports: [
     MulterModule.register({
@@ -73,6 +74,7 @@ import { BillAuction } from './models/billauction.entity';
     DauGiaCommand,
     DauGiaStartCommand,
     DauGiaStartService,
+    AccBalanceCommand,
   ],
   controllers: [],
 })
