@@ -57,10 +57,8 @@ export class WhiteListAddCommand extends CommandMessage {
 
     if (actionMatch) {
       action = actionMatch[1];
-      console.log('action: ', action);
       const firstUser = actionMatch[2];
       usernames = [firstUser, ...usersRaw].filter(Boolean);
-      console.log('users: ', usernames);
     }
     if (
       usernames.length === 0 ||

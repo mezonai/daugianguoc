@@ -51,11 +51,18 @@ export class ListenerTokenSend extends BaseQueueProcessor<TokenSentEvent> {
         t: successMessage,
         mk: [{ type: EMarkdownType.PRE, s: 0, e: successMessage.length }],
       });
+
+      await this.userRepository
+        .createQueryBuilder()
+        .update()
+        .set({ amount: () => 'amount + :amount' })
+        .where('user_id = :user_id', { user_id: tokenEvent.sender_id, amount })
+        .execute();
     } catch (error) {
       try {
         const dataSendToken = {
           sender_id: botId,
-          sender_name: process.env.BOT_KOMU_NAME || 'UtilityBot',
+          sender_name: process.env.BOT_NAME || 'AUCTION-MEZON-BOT',
           receiver_id: tokenEvent.sender_id as string,
           amount: amount,
         };

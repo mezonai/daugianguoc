@@ -5,6 +5,8 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
   JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
 import { TABLE } from '../constants/tables';
@@ -24,8 +26,12 @@ export class Daugia {
 
   @Column({ nullable: true })
   name: string;
+
   @Column({ nullable: true })
   startPrice: number;
+  @Column({ nullable: true })
+  minPrice: number;
+
   @Column({ nullable: true })
   time: number;
 
@@ -35,12 +41,19 @@ export class Daugia {
   @Column({ nullable: true })
   image: string;
 
-  @Column({ nullable: true, type: 'timestamp' })
-  datetime: Date;
   @Column({ nullable: true })
   purchase: number;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'buyer_id' })
   buyer: User;
+
+  @Column({ default: false })
+  isDelete: boolean;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

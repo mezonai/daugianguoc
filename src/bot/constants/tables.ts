@@ -3,4 +3,5 @@ export const TABLE = {
   WELCOME_MESSAGE: 'vibot_welcomeMessage',
   BLOCK_RUT: 'vibot_blockRut',
   DAUGIA: 'vibot_daugia',
+  BILLAUCTION: 'vibot_billAuction',
 };
