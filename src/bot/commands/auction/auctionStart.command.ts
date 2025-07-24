@@ -299,7 +299,7 @@ export class DauGiaStartCommand extends CommandMessage {
           },
           {
             name:
-              'Note : Số tiền đấu giá cho mỗi lần đáu giá là riêng biệt , phí bắt đầu đấu giá cho mỗi lần là ' +
+              'Note : Số tiền đấu giá cho mỗi lần đấu giá là riêng biệt , phí bắt đầu đấu giá cho mỗi lần là ' +
               Number(this.configService.get('PHI_THAM_GIA')).toLocaleString(
                 'vi-VN',
               ) +

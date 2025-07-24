@@ -339,17 +339,52 @@ export class DauGiaStartService {
           price < Number(minPrice) ||
           price % Number(stepPrice) !== 0
         ) {
-          const content = `[Thamgiadaugia]
-            -[User]: Số dư phải >= giá đấu
-            -[Giá]: phải >= ${minPrice}, <= ${startPrice} và là bội số của ${stepPrice}`;
+          let errorMessage = '[Thông báo đấu giá của bạn đang sai quy định]';
+
+          if (Number(user.amount) < price) {
+            errorMessage +=
+              '\n- Số dư của bạn hiện tại của bạn là ' +
+              Number(user.amount).toLocaleString('vi-VN') +
+              'đ bé hơn ' +
+              'giá của bạn tham gia đấu giá ' +
+              Number(price).toLocaleString('vi-VN') +
+              'đ';
+          }
+
+          if (price > Number(startPrice)) {
+            errorMessage +=
+              '\n- Giá của bạn đấu giá ' +
+              Number(price).toLocaleString('vi-VN') +
+              'đ  đã lớn hơn giá của sản phẩm ' +
+              Number(startPrice).toLocaleString('vi-VN') +
+              'đ';
+          }
+
+          if (price < Number(minPrice)) {
+            errorMessage +=
+              '\n- Giá của bạn đấu giá ' +
+              Number(price).toLocaleString('vi-VN') +
+              'đ  đã nhỏ hơn giá của sản phẩm ' +
+              Number(minPrice).toLocaleString('vi-VN') +
+              'đ';
+          }
+
+          if (price % Number(stepPrice) !== 0) {
+            errorMessage +=
+              '\n- Giá của bạn đấu giá ' +
+              Number(price).toLocaleString('vi-VN') +
+              'đ  đã không phải là bội số của bước giá ' +
+              Number(stepPrice).toLocaleString('vi-VN') +
+              'đ';
+          }
 
           return await message.update({
-            t: content,
+            t: errorMessage,
             mk: [
               {
                 type: EMarkdownType.PRE,
                 s: 0,
-                e: content.length,
+                e: errorMessage.length,
               },
             ],
           });
