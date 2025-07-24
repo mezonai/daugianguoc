@@ -5,6 +5,7 @@ import { Command } from 'src/bot/base/commandRegister.decorator';
 import { MezonClientService } from 'src/mezon/services/mezon-client.service';
 import { Repository } from 'typeorm';
 import { WelcomeMessage } from 'src/bot/models/welcomeMessage.entity';
+import { ConfigService } from '@nestjs/config';
 
 @Command('welcomemsg')
 export class WelcomeMsgCommand extends CommandMessage {
@@ -12,12 +13,14 @@ export class WelcomeMsgCommand extends CommandMessage {
     clientService: MezonClientService,
     @InjectRepository(WelcomeMessage)
     private welcomeMessageRepository: Repository<WelcomeMessage>,
+    private configService: ConfigService,
   ) {
     super(clientService);
   }
 
   async execute(args: string[], message: ChannelMessage) {
-    if (message.sender_id !== '1827994776956309504') return;
+    if (message.sender_id !== (this.configService.get('ADMIN_ID') as string))
+      return;
     const messageChannel = await this.getChannelMessage(message);
     let messageContent =
       'welcome message content is not given! \n Example: *welcomemsg welcome message content \n [username]: to get the user name \n [clanname]: to get clan name';

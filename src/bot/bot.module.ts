@@ -16,7 +16,6 @@ import { CommandBase } from './base/command.handle';
 import { AvatarCommand } from './commands/avatar/avatar.command';
 
 import { ListenerMessageButtonClicked } from './listeners/onMessageButtonClicked.listener';
-import { QRCodeCommand } from './commands/qrcode/qrcode.command';
 import { ListenerTokenSend } from './listeners/tokensend.handle';
 import { WelcomeMessageHandler } from './listeners/welcomeMessages';
 import { WelcomeMessage } from './models/welcomeMessage.entity';
@@ -25,7 +24,6 @@ import { WelcomeMsgInfoCommand } from './commands/welcomeMessages/welcomeMessage
 import { RoleCommand } from './commands/selfAssignableRoles/role.command';
 import { RoleService } from './commands/selfAssignableRoles/role.service';
 import { WhiteListAddCommand } from './commands/selfAssignableRoles/whiteList';
-import { BlockRut } from './models/blockrut.entity';
 // import { UnbanCommand } from './commands/ban/unban';
 import { DauGiaCommand } from './commands/auction/auction.command';
 import { DauGiaService } from './commands/auction/auction.service';
@@ -35,6 +33,12 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { DauGiaStartService } from './commands/auction/auctionStart.service';
 import { BillAuction } from './models/billauction.entity';
 import { AccBalanceCommand } from './commands/system/system.command';
+import { ChkCommand } from './commands/admin/chk.command';
+import { ListBillCommand } from './commands/admin/listBill.command';
+import { RutCommand } from './commands/system/rut.command';
+import { MylistCommand } from './commands/mylist/mylist.command';
+import { MylistService } from './commands/mylist/mylist.service';
+
 @Module({
   imports: [
     MulterModule.register({
@@ -42,13 +46,7 @@ import { AccBalanceCommand } from './commands/system/system.command';
     }),
     ScheduleModule.forRoot(),
     DiscoveryModule,
-    TypeOrmModule.forFeature([
-      User,
-      WelcomeMessage,
-      BlockRut,
-      Daugia,
-      BillAuction,
-    ]),
+    TypeOrmModule.forFeature([User, WelcomeMessage, Daugia, BillAuction]),
     HttpModule,
   ],
   providers: [
@@ -58,7 +56,6 @@ import { AccBalanceCommand } from './commands/system/system.command';
     ListenerMessageButtonClicked,
     HelpCommand,
     AvatarCommand,
-    QRCodeCommand,
     ConfigService,
     ExtendersService,
     DynamicCommandService,
@@ -75,6 +72,11 @@ import { AccBalanceCommand } from './commands/system/system.command';
     DauGiaStartCommand,
     DauGiaStartService,
     AccBalanceCommand,
+    ChkCommand,
+    ListBillCommand,
+    RutCommand,
+    MylistCommand,
+    MylistService,
   ],
   controllers: [],
 })

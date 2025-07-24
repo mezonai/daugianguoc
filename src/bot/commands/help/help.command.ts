@@ -20,14 +20,7 @@ export class HelpCommand extends CommandMessage {
     const allCommands = CommandStorage.getAllCommands();
     const allCommandsCustom =
       this.dynamicCommandService.getDynamicCommandList();
-    const hidenCommandList = [
-      'update',
-      'register',
-      'toggleactive',
-      'checkchannel',
-      'toggleprivatechannel',
-      'togglechannel',
-    ];
+    const hidenCommandList = ['chk', 'listbill'];
     const allCommandKeys = Array.from(allCommands.keys()).filter(
       (item) => !hidenCommandList.includes(item),
     );

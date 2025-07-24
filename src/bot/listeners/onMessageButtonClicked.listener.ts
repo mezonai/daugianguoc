@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { RoleService } from '../commands/selfAssignableRoles/role.service';
 import { DauGiaService } from '../commands/auction/auction.service';
 import { DauGiaStartService } from '../commands/auction/auctionStart.service';
+import { MylistService } from '../commands/mylist/mylist.service';
 
 @Injectable()
 export class ListenerMessageButtonClicked {
@@ -11,6 +12,7 @@ export class ListenerMessageButtonClicked {
     private roleService: RoleService,
     private dauGiaService: DauGiaService,
     private dauGiaStartService: DauGiaStartService,
+    private mylistService: MylistService,
   ) {}
 
   @OnEvent(Events.MessageButtonClicked)
@@ -31,6 +33,9 @@ export class ListenerMessageButtonClicked {
           break;
         case 'userjoinauction':
           this.handleUserJoinAuction(data);
+          break;
+        case 'updatedaugia':
+          this.handleUpdateDaugia(data);
           break;
         default:
           break;
@@ -66,6 +71,14 @@ export class ListenerMessageButtonClicked {
   async handleUserJoinAuction(data) {
     try {
       await this.dauGiaStartService.handleUserJoinAuction(data);
+    } catch (error) {
+      console.log('ERORR handleSelectPoll', error);
+    }
+  }
+
+  async handleUpdateDaugia(data) {
+    try {
+      await this.mylistService.handleUpdateDaugia(data);
     } catch (error) {
       console.log('ERORR handleSelectPoll', error);
     }

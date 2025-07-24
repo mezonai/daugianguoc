@@ -42,33 +42,45 @@ export class DauGiaService {
     const priceStr = parsedExtraData[`daugia-${msgId}-startingprice-ip`] || '0';
     const timeStr = parsedExtraData[`daugia-${msgId}-time-ip`] || '5';
     const minPriceStr = parsedExtraData[`daugia-${msgId}-minPrice-ip`] || '0';
+    const stepPriceStr = parsedExtraData[`daugia-${msgId}-priceStep-ip`] || '0';
 
     const price = Number(priceStr);
     const time = Number(timeStr);
     const minPrice = Number(minPriceStr);
+    const stepPrice = Number(stepPriceStr);
 
     const isInvalid =
       !name.trim() ||
+      name.length < 3 ||
+      name.length > 100 ||
       !description.trim() ||
+      description.length < 10 ||
       !image.trim() ||
+      // !image.match(/^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i) ||
       isNaN(price) ||
       isNaN(minPrice) ||
+      isNaN(stepPrice) ||
+      isNaN(time) ||
       price < 1000 ||
       minPrice < 1000 ||
-      minPrice > price ||
-      price % 1000 !== 0 ||
+      minPrice >= price ||
+      price > 1000000000 ||
       time <= 0 ||
-      time % 5 !== 0;
+      time % 5 !== 0 ||
+      time > 1440 ||
+      stepPrice <= 0 ||
+      stepPrice % 1000 !== 0 ||
+      stepPrice > price / 2;
 
     if (isInvalid) {
       const content = `[Đấu giá không hợp lệ]
-             -[Tên sản phẩm]: phải có value
-             -[Mô tả]: phải có value
-             -[Ảnh]: link ảnh
-             -[Giá khởi điểm]: phải là số > 1000 và là số nguyên chẵn
-             -[Giá tối thiểu]:phải là số > 1000 < [Giá khởi điểm] và là số nguyên chẵn
-             -[Thời gian phiên đấu giá]: phải là bội số của 5
-            `;
+             -[Product Auction Name]: phải có value từ 3-100 ký tự
+             -[Description]: phải có value tối thiểu 10 ký tự
+             -[Product Auction (image link)]: phải là link ảnh hợp lệ (png, jpg, jpeg, gif, webp)
+             -[Starting Price]: phải là số từ 1,000 đến 1,000,000,000 
+             -[Giá tối thiểu]: phải là số từ 1,000, nhỏ hơn [Starting Price] và là bội số của 1,000
+             -[Price Step]: phải là bội số của 1,000 và không vượt quá 50% giá khởi điểm
+             -[Time (minutes)]: phải là bội số của 5 và không vượt quá 1440 phút (24 giờ)`;
 
       return await message.update({
         t: content,
@@ -91,6 +103,7 @@ export class DauGiaService {
       startPrice: price,
       time,
       minPrice,
+      stepPrice,
     });
     await this.daugiaRepository.save(user);
     const content = 'Tạo thành công buổi đấu giá ';
@@ -135,6 +148,7 @@ export class DauGiaService {
     color,
   ) {
     try {
+      if (!data.user_id || data.user_id !== authId) return;
       const channel = await this.client.channels.fetch(data.channel_id);
       const message = await channel.messages.fetch(data.message_id);
       const context = 'Bạn đã hủy tạo phiên đấu giá';

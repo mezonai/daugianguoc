@@ -48,7 +48,7 @@ export class DauGiaCommand extends CommandMessage {
         title: `[daugia]`,
         fields: [
           {
-            name: 'Tên Sản Phẩm Đấu Giá',
+            name: 'Product Auction Name',
             value: '',
             inputs: {
               id: `daugia-${message.message_id}-name-ip`,
@@ -62,7 +62,7 @@ export class DauGiaCommand extends CommandMessage {
             },
           },
           {
-            name: 'Sản Phẩm Đấu Giá (link ảnh):',
+            name: 'Product Auction (image link):',
             value: '',
             inputs: {
               id: `daugia-${message.message_id}-image-ip`,
@@ -104,7 +104,7 @@ export class DauGiaCommand extends CommandMessage {
           //   },
           // },
           {
-            name: 'Giá khởi điểm:',
+            name: 'Starting Price:',
             value: '',
             inputs: {
               id: `daugia-${message.message_id}-startingprice-ip`,
@@ -118,7 +118,7 @@ export class DauGiaCommand extends CommandMessage {
             },
           },
           {
-            name: 'Giá Tối Thiểu:',
+            name: 'Minimum Price:',
             value: '',
             inputs: {
               id: `daugia-${message.message_id}-minPrice-ip`,
@@ -132,7 +132,21 @@ export class DauGiaCommand extends CommandMessage {
             },
           },
           {
-            name: 'Thời gian phiên đấu giá (phút):',
+            name: 'Price Step:',
+            value: '',
+            inputs: {
+              id: `daugia-${message.message_id}-priceStep-ip`,
+              type: EMessageComponentType.INPUT,
+              component: {
+                id: `daugia-${message.message_id}-priceStep-plhder`,
+                required: true,
+                defaultValue: 10000,
+                type: 'number',
+              },
+            },
+          },
+          {
+            name: 'Time (minutes):',
             value: '',
             inputs: {
               id: `daugia-${message.message_id}-time-ip`,
