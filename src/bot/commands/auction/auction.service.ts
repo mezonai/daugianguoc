@@ -76,9 +76,9 @@ export class DauGiaService {
       const content = `[Đấu giá không hợp lệ]
              -[Product Auction Name]: phải có value từ 3-100 ký tự
              -[Description]: phải có value tối thiểu 10 ký tự
-             -[Product Auction (image link)]: phải là link ảnh hợp lệ (png, jpg, jpeg, gif, webp)
-             -[Starting Price]: phải là số từ 1,000 đến 1,000,000,000 
-             -[Giá tối thiểu]: phải là số từ 1,000, nhỏ hơn [Starting Price] và là bội số của 1,000
+             -[Product Auction (image link)]: phải là link ảnh 
+             -[Product Price]: phải là số từ 1,000 đến 1,000,000,000 
+             -[Giá tối thiểu]: phải là số từ 1,000, nhỏ hơn [Product Price] và là bội số của 1,000
              -[Price Step]: phải là bội số của 1,000 và không vượt quá 50% giá khởi điểm
              -[Time (minutes)]: phải là bội số của 5 và không vượt quá 1440 phút (24 giờ)`;
 

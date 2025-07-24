@@ -104,7 +104,7 @@ export class DauGiaCommand extends CommandMessage {
           //   },
           // },
           {
-            name: 'Starting Price:',
+            name: 'Product Price:',
             value: '',
             inputs: {
               id: `daugia-${message.message_id}-startingprice-ip`,

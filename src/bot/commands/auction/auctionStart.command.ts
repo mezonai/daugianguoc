@@ -57,6 +57,70 @@ export class DauGiaStartCommand extends CommandMessage {
           t: context,
           mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
         });
+      } else if (args[0] === 'sch' && args[1] && args[2] && args[3]) {
+        const dateTimeStr = args.slice(2).join(' ');
+        const scheduledTime = new Date(dateTimeStr);
+
+        const daugia = await this.dauGiaRepository.findOne({
+          where: {
+            createby: {
+              user_id: message.sender_id,
+            },
+            daugia_id: Number(args[1]),
+            isDelete: false,
+          },
+          relations: ['createby'],
+        });
+
+        if (!daugia) {
+          const context =
+            'Bạn không có phiên đấu giá nào ! vui lòng xem lại ID phiên đấu giá để lên lịch ';
+          return await messageChannel?.reply({
+            t: context,
+            mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+          });
+        }
+
+        if (isNaN(scheduledTime.getTime())) {
+          const context =
+            'Định dạng thời gian không hợp lệ. Sử dụng: $start schedule YYYY-MM-DD HH:MM';
+          return await messageChannel?.reply({
+            t: context,
+            mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+          });
+        }
+
+        const now = new Date();
+        const timeUntilTarget = scheduledTime.getTime() - now.getTime();
+        const thirtyMinutesInMs =
+          Number(this.configService.get('TIME_NOTIFICATION')) * 60 * 1000;
+
+        if (timeUntilTarget <= 0) {
+          const context = 'Thời gian đã qua, không thể lên lịch';
+          return await messageChannel?.reply({
+            t: context,
+            mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+          });
+        }
+
+        if (timeUntilTarget < thirtyMinutesInMs) {
+          const context =
+            'Phải lên lịch trước ít nhất ' +
+            Number(this.configService.get('TIME_NOTIFICATION')) +
+            ' phút để có thể thông báo trước';
+          return await messageChannel?.reply({
+            t: context,
+            mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+          });
+        }
+
+        await this.scheduleAuctionAt(scheduledTime, message, daugia);
+
+        const context = `Đã lên lịch phiên đấu giá vào lúc ${scheduledTime.toLocaleString('vi-VN')}`;
+        return await messageChannel?.reply({
+          t: context,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+        });
       }
     }
 
@@ -132,6 +196,40 @@ export class DauGiaStartCommand extends CommandMessage {
     }
   }
 
+  async scheduleAuctionAt(
+    targetTime: Date,
+    message: ChannelMessage,
+    daugia: Daugia,
+  ) {
+    const now = new Date();
+    const timeUntilTarget = targetTime.getTime() - now.getTime();
+    const thirtyMinutesInMs =
+      Number(this.configService.get('TIME_NOTIFICATION')) * 60 * 1000;
+
+    if (timeUntilTarget > thirtyMinutesInMs) {
+      const notificationTime = timeUntilTarget - thirtyMinutesInMs;
+      const notificationName = `notification-auction-${message.sender_id}-${Date.now()}`;
+
+      const notificationTimeout = setTimeout(async () => {
+        await this.sendUpcomingAuctionNotification(message, targetTime);
+        this.schedulerRegistry.deleteTimeout(notificationName);
+      }, notificationTime);
+
+      this.schedulerRegistry.addTimeout(notificationName, notificationTimeout);
+    }
+
+    const scheduleName = `scheduled-auction-${message.sender_id}-${Date.now()}`;
+    const timeout = setTimeout(async () => {
+      if (daugia) {
+        await this.startAuctionSession(daugia, message);
+      }
+
+      this.schedulerRegistry.deleteTimeout(scheduleName);
+    }, timeUntilTarget);
+
+    this.schedulerRegistry.addTimeout(scheduleName, timeout);
+  }
+
   async startAuctionSession(daugia: Daugia, message: ChannelMessage) {
     const messageChannel = await this.getChannelMessage(message);
 
@@ -171,7 +269,7 @@ export class DauGiaStartCommand extends CommandMessage {
           },
           {
             name:
-              'Starting Price: ' +
+              'Product Price: ' +
               daugia?.startPrice?.toLocaleString('vi-VN') +
               'đ',
             value: '',
@@ -202,8 +300,14 @@ export class DauGiaStartCommand extends CommandMessage {
           {
             name:
               'Note : Số tiền đấu giá cho mỗi lần đáu giá là riêng biệt , phí bắt đầu đấu giá cho mỗi lần là ' +
-              this.configService.get('PHI_THAM_GIA').toLocaleString('vi-VN') +
-              'đ không hoàn lại khi người dùng đấu giá sai quy trình (hãy kiểm tra xem tài khoản của bạn trước khi vào phiên đấu giá) ',
+              Number(this.configService.get('PHI_THAM_GIA')).toLocaleString(
+                'vi-VN',
+              ) +
+              'đ và không hoàn lại khi người đấu giá sai quy định (hãy kiểm tra xem tài khoản của bạn trước khi vào phiên đấu giá) ',
+            value: '',
+          },
+          {
+            name: 'Người chiến thắng : Là người đưa ra mức giá thấp nhất và duy nhất trong phiên đấu giá',
             value: '',
           },
         ],
@@ -370,6 +474,33 @@ export class DauGiaStartCommand extends CommandMessage {
     const channel = await this.client.channels.fetch(message.channel_id);
 
     const messageContent = '@here Phiên đấu giá ' + daugia.name + ' đã bắt đầu';
+
+    const replyMessage = {
+      t: messageContent,
+    };
+    const mentions = [{ user_id: '1', s: 0, e: 5 }];
+    await channel.send(replyMessage, mentions, undefined, true);
+  }
+
+  async sendUpcomingAuctionNotification(
+    message: ChannelMessage,
+    scheduledTime: Date,
+  ) {
+    const channel = await this.client.channels.fetch(message.channel_id);
+
+    const formattedTime = scheduledTime.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const messageContent =
+      '@here Thông báo: Phiên đấu giá sẽ diễn ra sau ' +
+      Number(this.configService.get('TIME_NOTIFICATION')) +
+      ' phút nữa. Vui lòng đảm bảo mọi công tác chuẩn bị (token) để tham gia đấu giá . Thời gian bắt đầu: ' +
+      formattedTime;
 
     const replyMessage = {
       t: messageContent,

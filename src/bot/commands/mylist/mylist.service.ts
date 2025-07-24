@@ -140,7 +140,7 @@ export class MylistService {
       if (image) {
         if (!image.trim()) {
           validationErrors.push(
-            '[Product Auction (image link)]: phải là link ảnh hợp lệ (png, jpg, jpeg, gif, webp)',
+            '[Product Auction (image link)]: phải là link ảnh',
           );
         }
       }
@@ -148,7 +148,7 @@ export class MylistService {
       if (price) {
         if (isNaN(price) || price < 1000 || price > 1000000000) {
           validationErrors.push(
-            '[Starting Price]: phải là số từ 1,000 đến 1,000,000,000',
+            '[Product Price]: phải là số từ 1,000 đến 1,000,000,000',
           );
         }
       }
@@ -157,7 +157,7 @@ export class MylistService {
         const currentPrice = price !== undefined ? price : dauGia.startPrice;
         if (isNaN(minPrice) || minPrice < 1000 || minPrice >= currentPrice) {
           validationErrors.push(
-            '[Minimum Price]: phải là số từ 1,000, nhỏ hơn [Starting Price] và là bội số của 1,000',
+            '[Minimum Price]: phải là số từ 1,000, nhỏ hơn [Product Price] và là bội số của 1,000',
           );
         }
       }

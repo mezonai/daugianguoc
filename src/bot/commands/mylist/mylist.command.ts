@@ -199,7 +199,7 @@ export class MylistCommand extends CommandMessage {
           //   },
           // },
           {
-            name: 'Starting Price:',
+            name: 'Product Price:',
             value: '',
             inputs: {
               id: `updatedaugia-${message.message_id}-startingprice-ip`,

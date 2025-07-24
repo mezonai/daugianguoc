@@ -24,7 +24,6 @@ export class AvatarCommand extends CommandMessage {
     if (message.clan_id === '1779484504377790464') {
       return;
     }
-    console.log('args', args);
     let messageContent: string;
     let userQuery: string | undefined;
 
