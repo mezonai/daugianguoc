@@ -39,25 +39,55 @@ export class ListenerTokenSend extends BaseQueueProcessor<TokenSentEvent> {
     const amount = Number(tokenEvent.amount) || 0;
     const botId = process.env.BOT_ID;
 
+    console.log('tokenEvent', tokenEvent);
+
     if (!botId) {
       throw new Error('BOT_ID is not defined');
     }
 
     try {
       const clan = this.client.clans.get('0');
-      const user = await clan?.users.fetch(tokenEvent.sender_id as string);
+      const mezonUser = await clan?.users.fetch(tokenEvent.sender_id as string);
+
+      console.log('user', mezonUser);
+
+      if (!mezonUser) {
+        return;
+      }
+
+      // Check if user exists in database
+      const dbUser = await this.userRepository.findOne({
+        where: { user_id: tokenEvent.sender_id as string },
+      });
+
+      if (!dbUser) {
+        // User doesn't exist in DB, create new user
+        const newUser = new User();
+        newUser.user_id = tokenEvent.sender_id as string;
+        newUser.username = mezonUser.username || '';
+        newUser.display_name = mezonUser.display_name || '';
+        newUser.amount = amount;
+        newUser.createdAt = Date.now();
+
+        await this.userRepository.save(newUser);
+        this.logger.log(`Created new user: ${newUser.user_id}`);
+      } else {
+        await this.userRepository
+          .createQueryBuilder()
+          .update()
+          .set({ amount: () => 'amount + :amount' })
+          .where('user_id = :user_id', {
+            user_id: tokenEvent.sender_id,
+            amount,
+          })
+          .execute();
+      }
+
       const successMessage = `💸Nạp ${tokenEvent.amount.toLocaleString('vi-VN')} token thành công`;
-      await user?.sendDM({
+      await mezonUser?.sendDM({
         t: successMessage,
         mk: [{ type: EMarkdownType.PRE, s: 0, e: successMessage.length }],
       });
-
-      await this.userRepository
-        .createQueryBuilder()
-        .update()
-        .set({ amount: () => 'amount + :amount' })
-        .where('user_id = :user_id', { user_id: tokenEvent.sender_id, amount })
-        .execute();
     } catch (error) {
       try {
         const dataSendToken = {
@@ -68,12 +98,14 @@ export class ListenerTokenSend extends BaseQueueProcessor<TokenSentEvent> {
         };
 
         const clan = this.client.clans.get('0');
-        const user = await clan?.users.fetch(tokenEvent.sender_id as string);
+        const mezonUser = await clan?.users.fetch(
+          tokenEvent.sender_id as string,
+        );
         const successMessage = `💸Nạp không thành công ! ${tokenEvent.amount.toLocaleString('vi-VN')}  token  sẽ được hoàn lại`;
 
         await Promise.all([
           this.client.sendToken(dataSendToken),
-          user?.sendDM({
+          mezonUser?.sendDM({
             t: successMessage,
             mk: [{ type: EMarkdownType.PRE, s: 0, e: successMessage.length }],
           }),
