@@ -1,6 +1,5 @@
 import { ChannelMessage, EMarkdownType } from 'mezon-sdk';
 import { Command } from 'src/bot/base/commandRegister.decorator';
-import { EUserError } from 'src/bot/constants/error';
 import { CommandMessage } from 'src/bot/base/command.abstract';
 import { MezonClientService } from 'src/mezon/services/mezon-client.service';
 import { User } from 'src/bot/models/user.entity';
@@ -52,7 +51,7 @@ export class AccBalanceCommand extends CommandMessage {
         ],
       });
     } catch (error) {
-      console.error('Error in AccBalanceCommand:', error);
+      console.error('Error in System command:', error);
 
       const errorMessage =
         'Có lỗi xảy ra khi kiểm tra số dư. Vui lòng thử lại sau.';

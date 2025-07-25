@@ -78,10 +78,8 @@ export class DauGiaStartService {
       const findUser = await queryRunner.manager.findOne(User, {
         where: { user_id: data.user_id },
       });
-      const bot = await queryRunner.manager.findOne(User, {
-        where: { user_id: this.configService.get('BOT_ID') },
-      });
-      if (!bot) {
+
+      if (!findUser) {
         return;
       }
 
@@ -102,10 +100,6 @@ export class DauGiaStartService {
         });
       }
 
-      findUser.amount -= feeAuction;
-      bot.amount = Number(bot.amount) + feeAuction;
-
-      await queryRunner.manager.save([findUser, bot]);
       await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -298,12 +292,15 @@ export class DauGiaStartService {
     stepPrice,
   ) {
     try {
+      const feeAuction: number =
+        Number(this.configService.get('PHI_THAM_GIA')) || 5000;
       const channel = await this.client.channels.fetch(channel_id);
       const channelDM = await this.client.channels.fetch(data.channel_id);
       const message = await channelDM.messages.fetch(data.message_id);
       const user = await this.userRepository.findOne({
         where: { user_id: data.user_id },
       });
+      const queryRunner = this.dataSource.createQueryRunner();
 
       const product = await this.daugiaRepository.findOne({
         where: { name: nameProduct, isDelete: false },
@@ -327,27 +324,30 @@ export class DauGiaStartService {
       let parsedExtraData;
 
       try {
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
         parsedExtraData = JSON.parse(data.extra_data);
         const priceStr =
           parsedExtraData[`userjoinauction-${data.user_id}-price-ip`] || '0';
-
         const price = Number(priceStr);
+        const totalPrice = Number(price) + Number(feeAuction);
 
         if (
-          Number(user.amount) < price ||
+          Number(user.amount) < totalPrice ||
           price > Number(startPrice) ||
           price < Number(minPrice) ||
           price % Number(stepPrice) !== 0
         ) {
           let errorMessage = '[Thông báo đấu giá của bạn đang sai quy định]';
 
-          if (Number(user.amount) < price) {
+          if (Number(user.amount) < Number(price) + Number(feeAuction)) {
             errorMessage +=
               '\n- Số dư của bạn hiện tại của bạn là ' +
               Number(user.amount).toLocaleString('vi-VN') +
               'đ bé hơn ' +
-              'giá của bạn tham gia đấu giá ' +
-              Number(price).toLocaleString('vi-VN') +
+              'giá của bạn tham gia đấu giá + phí tham gia đấu giá ' +
+              Number(totalPrice).toLocaleString('vi-VN') +
               'đ';
           }
 
@@ -390,15 +390,16 @@ export class DauGiaStartService {
           });
         }
 
-        user.amount = Number(user.amount) - price;
+        user.amount = Number(user.amount) - (price + feeAuction);
 
-        const newBill = await this.billAuctionRepository.create({
+        const newBill = await queryRunner.manager.create(BillAuction, {
           auction: { daugia_id: product.daugia_id } as Daugia,
           userAuction: { user_id: data.user_id } as User,
           blockMount: price,
         });
-        await this.billAuctionRepository.save(newBill);
-        await this.userRepository.save(user);
+        await queryRunner.manager.save(newBill);
+        await queryRunner.manager.save(user);
+        await queryRunner.commitTransaction();
         const context =
           'Bạn đã đấu giá sản phầm ' + nameProduct + ' với giá : ' + price;
         await message.update({
@@ -412,11 +413,14 @@ export class DauGiaStartService {
           mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],
         });
       } catch (error) {
+        await queryRunner.rollbackTransaction();
         const content = 'Invalid form data provided';
         return await message.update({
           t: content,
           mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],
         });
+      } finally {
+        await queryRunner.release();
       }
     } catch (error) {
       console.log(error);

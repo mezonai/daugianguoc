@@ -128,7 +128,7 @@ export class MylistCommand extends CommandMessage {
         mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
       });
     } catch (error) {
-      console.error('Error in AccBalanceCommand:', error);
+      console.error('Error in mylist command:', error);
     }
   }
 

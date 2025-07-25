@@ -116,7 +116,7 @@ export class DauGiaStartCommand extends CommandMessage {
 
         await this.scheduleAuctionAt(scheduledTime, message, daugia);
 
-        const context = `Đã lên lịch phiên đấu giá vào lúc ${scheduledTime.toLocaleString('vi-VN')}`;
+        const context = `Đã lên lịch phiên đấu giá sản phẩm ${daugia.name} vào lúc ${scheduledTime.toLocaleString('vi-VN')}`;
         return await messageChannel?.reply({
           t: context,
           mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
