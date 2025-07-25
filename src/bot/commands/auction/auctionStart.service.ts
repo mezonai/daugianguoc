@@ -5,7 +5,7 @@ import {
   MezonClient,
 } from 'mezon-sdk';
 
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
 import { User } from 'src/bot/models/user.entity';
@@ -40,6 +40,7 @@ export class DauGiaStartService {
     private billAuctionRepository: Repository<BillAuction>,
     private clientService: MezonClientService,
     private configService: ConfigService,
+    private dataSource: DataSource,
   ) {
     this.client = this.clientService.getClient();
   }
@@ -55,49 +56,62 @@ export class DauGiaStartService {
     nameProduct,
     startPrice,
     minPrice,
+    stepPrice,
   ) {
     if (data.user_id === authId) {
       return;
     }
-    const feeAuction: number = 5000;
+
+    const feeAuction: number =
+      Number(this.configService.get('PHI_THAM_GIA')) || 5000;
 
     const channel = await this.client.channels.fetch(data.channel_id);
 
     const auctioneer = await channel.clan.users.fetch(data.user_id);
 
-    const findUser = await this.userRepository.findOne({
-      where: { user_id: data.user_id },
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
 
-    const bot = await this.userRepository.findOne({
-      where: { user_id: this.configService.get('BOT_ID') },
-    });
+    try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
 
-    if (!bot) {
-      return;
-    }
-
-    if (!findUser || findUser.amount < feeAuction) {
-      const content = `[Tham Đấu giá không hợp lệ]
-               -[User]: phải có channel
-               -[$]: Số tiền của bạn không đủ để tham gia`;
-
-      return await channel.sendEphemeral(data.user_id, {
-        t: content,
-        mk: [
-          {
-            type: EMarkdownType.PRE,
-            s: 0,
-            e: content.length,
-          },
-        ],
+      const findUser = await queryRunner.manager.findOne(User, {
+        where: { user_id: data.user_id },
       });
+      const bot = await queryRunner.manager.findOne(User, {
+        where: { user_id: this.configService.get('BOT_ID') },
+      });
+      if (!bot) {
+        return;
+      }
+
+      if (!findUser || findUser.amount < feeAuction) {
+        const content = `[Tham Đấu giá không hợp lệ]
+                 -[User]: phải có trong channel
+                 -[$]: Số tiền của bạn không đủ để tham gia`;
+
+        return await channel.sendEphemeral(data.user_id, {
+          t: content,
+          mk: [
+            {
+              type: EMarkdownType.PRE,
+              s: 0,
+              e: content.length,
+            },
+          ],
+        });
+      }
+
+      findUser.amount -= feeAuction;
+      bot.amount = Number(bot.amount) + feeAuction;
+
+      await queryRunner.manager.save([findUser, bot]);
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+    } finally {
+      await queryRunner.release();
     }
-
-    findUser.amount -= feeAuction;
-    bot.amount = Number(bot.amount) + feeAuction;
-
-    await this.userRepository.save([findUser, bot]);
 
     try {
       const embed: EmbedProps[] = [
@@ -129,7 +143,7 @@ export class DauGiaStartService {
                   id: `userjoinauction-${data.user_id}-price-plhder`,
                   required: true,
                   type: 'number',
-                  defaultValue: 10000,
+                  defaultValue: minPrice,
                 },
               },
             },
@@ -151,7 +165,7 @@ export class DauGiaStartService {
               },
             },
             {
-              id: `userjoinauction_SUBMITCREATE_${data.user_id}_${data.channel_id}_${getRandomColor()}_${data.message_id}_${minPrice}_${startPrice}`,
+              id: `userjoinauction_SUBMITCREATE_${data.user_id}_${data.channel_id}_${getRandomColor()}_${data.message_id}_${minPrice}_${startPrice}_${nameProduct}_${stepPrice}`,
               type: EMessageComponentType.BUTTON,
               component: {
                 label: `Send`,
@@ -185,6 +199,7 @@ export class DauGiaStartService {
         nameProduct,
         startPrice,
         minPrice,
+        stepPrice,
       ] = data.button_id.split('_');
 
       if (!data.user_id) return;
@@ -201,6 +216,7 @@ export class DauGiaStartService {
             nameProduct,
             startPrice,
             minPrice,
+            stepPrice,
           );
           break;
 
@@ -224,6 +240,7 @@ export class DauGiaStartService {
         minPrice,
         startPrice,
         nameProduct,
+        stepPrice,
       ] = data.button_id.split('_');
 
       if (!data.user_id) return;
@@ -238,6 +255,7 @@ export class DauGiaStartService {
             minPrice,
             startPrice,
             nameProduct,
+            stepPrice,
           );
           break;
         case EmbebButtonType.CANCEL:
@@ -253,6 +271,8 @@ export class DauGiaStartService {
 
   async handleCancel(data, authId, channel_id, color, message_id) {
     try {
+      if (!data.user_id || data.user_id !== authId) return;
+
       const channel = await this.client.channels.fetch(data.channel_id);
       const message = await channel.messages.fetch(data.message_id);
 
@@ -275,6 +295,7 @@ export class DauGiaStartService {
     minPrice,
     startPrice,
     nameProduct,
+    stepPrice,
   ) {
     try {
       const channel = await this.client.channels.fetch(channel_id);
@@ -315,21 +336,55 @@ export class DauGiaStartService {
         if (
           Number(user.amount) < price ||
           price > Number(startPrice) ||
-          Number(user.amount) < Number(minPrice) ||
           price < Number(minPrice) ||
-          price % 1000 !== 0
+          price % Number(stepPrice) !== 0
         ) {
-          const content = `[Thamgiadaugia]
-            -[User]: mount >= price
-            -[Giá]: phải > ${minPrice} , < ${startPrice} và là số nguyên bội số của 1000 `;
+          let errorMessage = '[Thông báo đấu giá của bạn đang sai quy định]';
+
+          if (Number(user.amount) < price) {
+            errorMessage +=
+              '\n- Số dư của bạn hiện tại của bạn là ' +
+              Number(user.amount).toLocaleString('vi-VN') +
+              'đ bé hơn ' +
+              'giá của bạn tham gia đấu giá ' +
+              Number(price).toLocaleString('vi-VN') +
+              'đ';
+          }
+
+          if (price > Number(startPrice)) {
+            errorMessage +=
+              '\n- Giá của bạn đấu giá ' +
+              Number(price).toLocaleString('vi-VN') +
+              'đ  đã lớn hơn giá của sản phẩm ' +
+              Number(startPrice).toLocaleString('vi-VN') +
+              'đ';
+          }
+
+          if (price < Number(minPrice)) {
+            errorMessage +=
+              '\n- Giá của bạn đấu giá ' +
+              Number(price).toLocaleString('vi-VN') +
+              'đ  đã nhỏ hơn giá của sản phẩm ' +
+              Number(minPrice).toLocaleString('vi-VN') +
+              'đ';
+          }
+
+          if (price % Number(stepPrice) !== 0) {
+            errorMessage +=
+              '\n- Giá của bạn đấu giá ' +
+              Number(price).toLocaleString('vi-VN') +
+              'đ  đã không phải là bội số của bước giá ' +
+              Number(stepPrice).toLocaleString('vi-VN') +
+              'đ';
+          }
 
           return await message.update({
-            t: content,
+            t: errorMessage,
             mk: [
               {
                 type: EMarkdownType.PRE,
                 s: 0,
-                e: content.length,
+                e: errorMessage.length,
               },
             ],
           });
@@ -344,12 +399,14 @@ export class DauGiaStartService {
         });
         await this.billAuctionRepository.save(newBill);
         await this.userRepository.save(user);
-        const context = 'bạn đã đấu giá sản phầm với giá : ' + price;
+        const context =
+          'Bạn đã đấu giá sản phầm ' + nameProduct + ' với giá : ' + price;
         await message.update({
           t: context,
           mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
         });
-        const content = user.username + ' đã tham gia đấu giá';
+        const content =
+          user.username + ' đã tham gia đấu giá sản phẩm ' + nameProduct;
         return await channel.send({
           t: content,
           mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],

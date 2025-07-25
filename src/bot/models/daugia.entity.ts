@@ -34,6 +34,8 @@ export class Daugia {
 
   @Column({ nullable: true })
   time: number;
+  @Column({ nullable: true })
+  stepPrice: number;
 
   @Column({ nullable: true, type: 'text' })
   description: string;
