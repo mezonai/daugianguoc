@@ -69,7 +69,7 @@ export class DauGiaService {
       time % 5 !== 0 ||
       time > 1440 ||
       stepPrice <= 0 ||
-      stepPrice % 1000 !== 0 ||
+      stepPrice % 100 !== 0 ||
       stepPrice > price / 2;
 
     if (isInvalid) {
