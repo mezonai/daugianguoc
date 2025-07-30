@@ -50,8 +50,10 @@ export class DauGiaService {
     const stepPrice = Number(stepPriceStr);
 
     const errors: string[] = [];
-    if (!name.trim() || name.length < 3) {
-      errors.push('-[Product Auction Name]: phải có value từ 3-100 ký tự');
+    if (!name.trim() || name.length < 3 || name.includes('_')) {
+      errors.push(
+        '-[Product Auction Name]: phải có value từ 3-100 ký tự và không chứa ký tự "_"',
+      );
     }
     if (!description.trim() || description.length < 10) {
       errors.push('-[Description]: phải có value tối thiểu 10 ký tự');

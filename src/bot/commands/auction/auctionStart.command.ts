@@ -215,7 +215,11 @@ export class DauGiaStartCommand extends CommandMessage {
       const notificationName = `notification-auction-${message.sender_id}-${Date.now()}`;
 
       const notificationTimeout = setTimeout(async () => {
-        await this.sendUpcomingAuctionNotification(message, targetTime);
+        await this.sendUpcomingAuctionNotification(
+          message,
+          targetTime,
+          daugia.name,
+        );
         this.schedulerRegistry.deleteTimeout(notificationName);
       }, notificationTime);
 
@@ -635,6 +639,7 @@ export class DauGiaStartCommand extends CommandMessage {
   async sendUpcomingAuctionNotification(
     message: ChannelMessage,
     scheduledTime: Date,
+    productName: string,
   ) {
     const channel = await this.client.channels.fetch(message.channel_id);
 
@@ -647,7 +652,9 @@ export class DauGiaStartCommand extends CommandMessage {
     });
 
     const messageContent =
-      '@here Thông báo: Phiên đấu giá sẽ diễn ra sau ' +
+      '@here Thông báo: Phiên đấu giá sản phẩm ' +
+      productName +
+      ' sẽ diễn ra sau ' +
       Number(this.configService.get('TIME_NOTIFICATION')) +
       ' phút nữa. Vui lòng đảm bảo mọi công tác chuẩn bị (token) để tham gia đấu giá . Thời gian bắt đầu: ' +
       formattedTime;
