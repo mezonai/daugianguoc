@@ -31,17 +31,6 @@ export class DauGiaCommand extends CommandMessage {
   async execute(args: string[], message: ChannelMessage) {
     const messageChannel = await this.getChannelMessage(message);
 
-    // const now = new Date();
-    // now.setSeconds(0, 0);
-
-    // const toISOStringLocal = (date: Date) => {
-    //   const offset = date.getTimezoneOffset();
-    //   const local = new Date(date.getTime() - offset * 60 * 1000);
-    //   return local.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
-    // };
-
-    // const minValue = toISOStringLocal(now);
-
     const embed: EmbedProps[] = [
       {
         color: getRandomColor(),
@@ -88,21 +77,7 @@ export class DauGiaCommand extends CommandMessage {
               },
             },
           },
-          // {
-          //   name: 'Ngày & Giờ Đấu Giá:',
-          //   value: '',
-          //   inputs: {
-          //     id: `daugia-${message.message_id}-datetime-ip`,
-          //     type: EMessageComponentType.INPUT,
-          //     component: {
-          //       id: `daugia-${message.message_id}-datetime-plhder`,
-          //       required: true,
-          //       type: 'datetime-local',
-          //       min: minValue,
-          //       defaultValue: minValue,
-          //     },
-          //   },
-          // },
+
           {
             name: 'Product Price:',
             value: '',

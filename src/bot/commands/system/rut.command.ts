@@ -218,9 +218,6 @@ export class RutCommand extends CommandMessage {
     const timeoutId = setTimeout(() => {
       if (RutCommand.processingUsers.has(userId)) {
         RutCommand.processingUsers.delete(userId);
-        console.log(
-          `Auto-cleared processing state for user ${userId} after timeout`,
-        );
       }
     }, RutCommand.TRANSACTION_TIMEOUT_MS);
 
@@ -244,7 +241,5 @@ export class RutCommand extends CommandMessage {
 
     RutCommand.userTimeouts.clear();
     RutCommand.processingUsers.clear();
-
-    console.log('Cleared all processing users and timeouts');
   }
 }

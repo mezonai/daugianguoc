@@ -49,39 +49,58 @@ export class DauGiaService {
     const minPrice = Number(minPriceStr);
     const stepPrice = Number(stepPriceStr);
 
-    const isInvalid =
-      !name.trim() ||
-      name.length < 3 ||
-      name.length > 100 ||
-      !description.trim() ||
-      description.length < 10 ||
-      !image.trim() ||
-      // !image.match(/^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/i) ||
+    const errors: string[] = [];
+    if (!name.trim() || name.length < 3 || name.includes('_')) {
+      errors.push(
+        '-[Product Auction Name]: phải có value từ 3-100 ký tự và không chứa ký tự "_"',
+      );
+    }
+    if (!description.trim() || description.length < 10) {
+      errors.push('-[Description]: phải có value tối thiểu 10 ký tự');
+    }
+    if (!image.trim()) {
+      errors.push('-[Product Auction (image link)]: phải là link ảnh');
+    }
+
+    if (
       isNaN(price) ||
-      isNaN(minPrice) ||
-      isNaN(stepPrice) ||
-      isNaN(time) ||
       price < 1000 ||
+      price > 1000000000 ||
+      !Number.isInteger(price)
+    ) {
+      errors.push(
+        '-[Product Price]: phải là số nguyên và từ 1.000 đến 1.000.000.000',
+      );
+    }
+    if (
+      isNaN(minPrice) ||
       minPrice < 1000 ||
       minPrice >= price ||
-      price > 1000000000 ||
-      time <= 0 ||
-      time % 5 !== 0 ||
-      time > 1440 ||
+      (stepPrice > 0 && minPrice % stepPrice !== 0) ||
+      !Number.isInteger(minPrice)
+    ) {
+      errors.push(
+        `-[Minimum Price]: phải là số nguyên và từ 1.000, nhỏ hơn [Product Price] và là bội số của ${stepPrice}`,
+      );
+    }
+    if (
+      isNaN(stepPrice) ||
       stepPrice <= 0 ||
-      stepPrice % 100 !== 0 ||
-      stepPrice > price / 2;
+      !Number.isInteger(stepPrice) ||
+      stepPrice > price / 2
+    ) {
+      errors.push(
+        '-[Price Step]: phải là số nguyên lớn hơn 0  và không vượt quá 50% giá khởi điểm',
+      );
+    }
+    if (isNaN(time) || time <= 0 || time % 5 !== 0 || !Number.isInteger(time)) {
+      errors.push(
+        '-[Time (minutes)]: phải là số nguyên và là bội số của 5 và không vượt quá 1440 phút (24 giờ)',
+      );
+    }
 
-    if (isInvalid) {
-      const content = `[Đấu giá không hợp lệ]
-             -[Product Auction Name]: phải có value từ 3-100 ký tự
-             -[Description]: phải có value tối thiểu 10 ký tự
-             -[Product Auction (image link)]: phải là link ảnh 
-             -[Product Price]: phải là số từ 1,000 đến 1,000,000,000 
-             -[Giá tối thiểu]: phải là số từ 1,000, nhỏ hơn [Product Price] và là bội số của 1,000
-             -[Price Step]: phải là bội số của 1,000 và không vượt quá 50% giá khởi điểm
-             -[Time (minutes)]: phải là bội số của 5 và không vượt quá 1440 phút (24 giờ)`;
-
+    if (errors.length > 0) {
+      const content = `[Đấu giá không hợp lệ]\n` + errors.join('\n');
       return await message.update({
         t: content,
         mk: [

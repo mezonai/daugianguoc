@@ -25,6 +25,10 @@ import { ConfigService } from '@nestjs/config';
 @Command('start')
 export class DauGiaStartCommand extends CommandMessage {
   private isStart: boolean = false;
+  private static activeAuctions: Map<
+    string,
+    { channel_id: string; lastNotify: number }
+  > = new Map();
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -116,7 +120,7 @@ export class DauGiaStartCommand extends CommandMessage {
 
         await this.scheduleAuctionAt(scheduledTime, message, daugia);
 
-        const context = `Đã lên lịch phiên đấu giá vào lúc ${scheduledTime.toLocaleString('vi-VN')}`;
+        const context = `Đã lên lịch phiên đấu giá sản phẩm ${daugia.name} vào lúc ${scheduledTime.toLocaleString('vi-VN')}`;
         return await messageChannel?.reply({
           t: context,
           mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
@@ -211,7 +215,11 @@ export class DauGiaStartCommand extends CommandMessage {
       const notificationName = `notification-auction-${message.sender_id}-${Date.now()}`;
 
       const notificationTimeout = setTimeout(async () => {
-        await this.sendUpcomingAuctionNotification(message, targetTime);
+        await this.sendUpcomingAuctionNotification(
+          message,
+          targetTime,
+          daugia.name,
+        );
         this.schedulerRegistry.deleteTimeout(notificationName);
       }, notificationTime);
 
@@ -341,12 +349,128 @@ export class DauGiaStartCommand extends CommandMessage {
       return;
     }
 
-    const timeoutName = `auction-timeout-${message.sender_id}-${daugia.daugia_id}-${Date.now()}`;
+    const checkNoBidder = async (message: ChannelMessage) => {
+      const channel = await this.client.channels.fetch(message?.channel_id);
+      const messages = channel.messages.values();
+      const context = Array.from(messages).map((msg) => ({
+        author: msg.sender_id,
+        content: msg.content?.t,
+        channel_id: message?.channel_id,
+        sender_id: msg.sender_id,
+      }));
 
+      const embed: EmbedProps[] = [
+        {
+          color: getRandomColor(),
+          title: `[Phiendaugia]`,
+          image: {
+            url: daugia?.image || '',
+            width: '350px',
+            height: '350px',
+          },
+
+          fields: [
+            {
+              name: 'Product Auction Name: ' + daugia?.name,
+              value: '',
+            },
+            {
+              name: 'Description: ' + daugia?.description,
+              value: '',
+            },
+            {
+              name:
+                'Product Price: ' +
+                daugia?.startPrice?.toLocaleString('vi-VN') +
+                'đ',
+              value: '',
+            },
+            {
+              name:
+                'Minimum Price: ' +
+                daugia?.minPrice?.toLocaleString('vi-VN') +
+                'đ',
+              value: '',
+            },
+            {
+              name:
+                'Step Price: ' +
+                daugia?.stepPrice?.toLocaleString('vi-VN') +
+                'đ',
+              value: '',
+            },
+            {
+              name:
+                'Time (minutes): ' +
+                daugia?.time?.toString() +
+                ' phút (' +
+                formatTime(startTime) +
+                ' - ' +
+                formatTime(endTime) +
+                ')',
+              value: '',
+            },
+            {
+              name:
+                'Note : Số tiền đấu giá cho mỗi lần đấu giá là riêng biệt , phí bắt đầu đấu giá cho mỗi lần là ' +
+                Number(this.configService.get('PHI_THAM_GIA')).toLocaleString(
+                  'vi-VN',
+                ) +
+                'đ và không hoàn lại khi người đấu giá sai quy định (hãy kiểm tra xem tài khoản của bạn trước khi vào phiên đấu giá) ',
+              value: '',
+            },
+            {
+              name: 'Người chiến thắng : Là người đưa ra mức giá thấp nhất và duy nhất trong phiên đấu giá',
+              value: '',
+            },
+          ],
+          timestamp: new Date().toISOString(),
+          footer: MEZON_EMBED_FOOTER,
+        },
+      ];
+
+      const components = [
+        {
+          components: [
+            {
+              id: `joinauction_THAMGIA_${message.sender_id}_${message.clan_id}_${message.mode}_${message.is_public}_${getRandomColor()}_${message.message_id}_${daugia?.name}_${daugia.startPrice}_${daugia.minPrice}_${daugia.stepPrice}`,
+              type: EMessageComponentType.BUTTON,
+              component: {
+                label: `Tham Gia Đấu Giá`,
+                style: EButtonMessageStyle.SUCCESS,
+              },
+            },
+          ],
+        },
+      ];
+
+      const botId = this.configService.get('BOT_ID');
+
+      if (context.length > 0 && context[context.length - 1].author !== botId) {
+        const sendMessage = await channel.send({ embed, components });
+        DauGiaStartCommand.activeAuctions.set(sendMessage.message_id, {
+          channel_id: message.channel_id,
+          lastNotify: Date.now(),
+        });
+      }
+      return;
+    };
+    const intervalName = `auction-check-nobidder-${message.message_id}-${daugia.daugia_id}`;
+
+    const interval = setInterval(() => {
+      void checkNoBidder(message);
+    }, 10000);
+
+    this.schedulerRegistry.addInterval(intervalName, interval);
+
+    const timeoutName = `auction-timeout-${message.sender_id}-${daugia.daugia_id}-${Date.now()}`;
     const channel = await this.client.channels.fetch(messages?.channel_id);
     const messsageReply = await channel.messages.fetch(messages?.message_id);
 
     const callback = async (messsageReply: any) => {
+      this.schedulerRegistry.deleteInterval(intervalName);
+      this.schedulerRegistry.deleteTimeout(timeoutName);
+      clearInterval(interval);
       const bot = await this.userRepository.findOne({
         where: { user_id: this.configService.get('BOT_ID') },
       });
@@ -372,6 +496,7 @@ export class DauGiaStartCommand extends CommandMessage {
           t: context,
           mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
         });
+        this.updateMessageAuction(message);
 
         return;
       }
@@ -387,11 +512,18 @@ export class DauGiaStartCommand extends CommandMessage {
         .map(([blockMount]) => Number(blockMount));
 
       if (uniqueBlockMounts.length === 0) {
+        const content = 'Phiên đấu giá đã kết thúc!';
+        await messsageReply.update({
+          t: content,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],
+        });
         const context = 'Buổi đấu giá không có mức giá nào là duy nhất.';
         await channel.send({
           t: context,
           mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
         });
+        this.updateMessageAuction(message);
+        return;
       }
 
       const minUniqueBlockMount = Math.min(...uniqueBlockMounts);
@@ -458,7 +590,7 @@ export class DauGiaStartCommand extends CommandMessage {
         mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
       });
 
-      this.schedulerRegistry.deleteTimeout(timeoutName);
+      this.updateMessageAuction(message);
     };
 
     const timeout = setTimeout(
@@ -469,6 +601,27 @@ export class DauGiaStartCommand extends CommandMessage {
     );
 
     this.schedulerRegistry.addTimeout(timeoutName, timeout);
+  }
+
+  async updateMessageAuction(message: ChannelMessage) {
+    const channel = await this.client.channels.fetch(message.channel_id);
+    const allAuctions = Array.from(DauGiaStartCommand.activeAuctions.entries());
+
+    for (const [message_id, auctionInfo] of allAuctions) {
+      try {
+        const channel = await this.client.channels.fetch(message.channel_id);
+        const endMsg = await channel.messages.fetch(message_id);
+
+        if (endMsg) {
+          const content = 'Phiên đấu giá đã kết thúc!';
+          await endMsg.update({
+            t: content,
+            mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],
+          });
+          DauGiaStartCommand.activeAuctions.delete(message_id);
+        }
+      } catch (e) {}
+    }
   }
 
   async sendMessageNotification(message: ChannelMessage, daugia: Daugia) {
@@ -486,6 +639,7 @@ export class DauGiaStartCommand extends CommandMessage {
   async sendUpcomingAuctionNotification(
     message: ChannelMessage,
     scheduledTime: Date,
+    productName: string,
   ) {
     const channel = await this.client.channels.fetch(message.channel_id);
 
@@ -498,7 +652,9 @@ export class DauGiaStartCommand extends CommandMessage {
     });
 
     const messageContent =
-      '@here Thông báo: Phiên đấu giá sẽ diễn ra sau ' +
+      '@here Thông báo: Phiên đấu giá sản phẩm ' +
+      productName +
+      ' sẽ diễn ra sau ' +
       Number(this.configService.get('TIME_NOTIFICATION')) +
       ' phút nữa. Vui lòng đảm bảo mọi công tác chuẩn bị (token) để tham gia đấu giá . Thời gian bắt đầu: ' +
       formattedTime;
