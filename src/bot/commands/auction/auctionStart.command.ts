@@ -93,9 +93,12 @@ export class DauGiaStartCommand extends CommandMessage {
             mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
           });
         }
-
         const now = new Date();
-        const timeUntilTarget = scheduledTime.getTime() - now.getTime();
+        const nowInVietnam = now.toLocaleString('en-US', {
+          timeZone: 'Asia/Ho_Chi_Minh',
+        });
+        const timeUntilTarget =
+          scheduledTime.getTime() - new Date(nowInVietnam).getTime();
         const thirtyMinutesInMs =
           Number(this.configService.get('TIME_NOTIFICATION')) * 60 * 1000;
 
