@@ -94,7 +94,7 @@ export class DauGiaStartCommand extends CommandMessage {
           });
         }
         const now = new Date();
-        const nowInVietnam = now.toLocaleString('en-US', {
+        const nowInVietnam = now.toLocaleString('vi-VN', {
           timeZone: 'Asia/Ho_Chi_Minh',
         });
         const timeUntilTarget =
