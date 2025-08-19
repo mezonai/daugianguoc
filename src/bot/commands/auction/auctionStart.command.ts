@@ -63,8 +63,7 @@ export class DauGiaStartCommand extends CommandMessage {
         });
       } else if (args[0] === 'sch' && args[1] && args[2] && args[3]) {
         const dateTimeStr = args.slice(2).join(' ');
-        const scheduledTime = new Date(dateTimeStr);
-
+        const scheduledTime = new Date(dateTimeStr + ' GMT+0700');
         const daugia = await this.dauGiaRepository.findOne({
           where: {
             createby: {
@@ -84,6 +83,13 @@ export class DauGiaStartCommand extends CommandMessage {
             mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
           });
         }
+        if (daugia?.endTime && daugia?.endTime <= new Date()) {
+          const context = 'Phiên đấu giá đã quá thời gian!';
+          return await messageChannel?.reply({
+            t: context,
+            mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+          });
+        }
 
         if (isNaN(scheduledTime.getTime())) {
           const context =
@@ -93,12 +99,16 @@ export class DauGiaStartCommand extends CommandMessage {
             mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
           });
         }
+
         const now = new Date();
-        const nowInVietnam = now.toLocaleString('vi-VN', {
-          timeZone: 'Asia/Ho_Chi_Minh',
-        });
+        const nowInVietnam = new Date(
+          now.toLocaleString('en-US', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+          }),
+        );
+
         const timeUntilTarget =
-          scheduledTime.getTime() - new Date(nowInVietnam).getTime();
+          scheduledTime.getTime() - nowInVietnam.getTime();
         const thirtyMinutesInMs =
           Number(this.configService.get('TIME_NOTIFICATION')) * 60 * 1000;
 
@@ -123,7 +133,7 @@ export class DauGiaStartCommand extends CommandMessage {
 
         await this.scheduleAuctionAt(scheduledTime, message, daugia);
 
-        const context = `Đã lên lịch phiên đấu giá sản phẩm ${daugia.name} vào lúc ${scheduledTime.toLocaleString('vi-VN')}`;
+        const context = `Đã lên lịch phiên đấu giá sản phẩm ${daugia.name} vào lúc ${scheduledTime.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`;
         return await messageChannel?.reply({
           t: context,
           mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
@@ -158,6 +168,15 @@ export class DauGiaStartCommand extends CommandMessage {
           mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
         });
       }
+
+      if (daugia.endTime && daugia.endTime <= new Date()) {
+        const context = 'Phiên đấu giá đã quá thời gian!';
+        return await messageChannel?.reply({
+          t: context,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+        });
+      }
+
       return this.startAuctionSession(daugia, message);
     }
 
@@ -179,15 +198,30 @@ export class DauGiaStartCommand extends CommandMessage {
       });
     }
     if (daugiaList.length === 1) {
-      return this.startAuctionSession(daugiaList[0], message);
+      const daugia = daugiaList[0];
+
+      if (daugia.endTime && daugia.endTime <= new Date()) {
+        const context = 'Phiên đấu giá đã quá thời gian!';
+        return await messageChannel?.reply({
+          t: context,
+          mk: [{ type: EMarkdownType.PRE, s: 0, e: context.length }],
+        });
+      }
+
+      return this.startAuctionSession(daugia, message);
     }
 
     if (daugiaList.length > 1) {
       const dauGiaNames = daugiaList
-        .map(
-          (dg, i) =>
-            `ID: ${dg.daugia_id} - ${dg.name} - startPrice: ${dg.startPrice.toLocaleString('vi-VN')}đ - minPrice: ${dg.minPrice.toLocaleString('vi-VN')}đ - stepPrice: ${dg.stepPrice.toLocaleString('vi-VN')}đ - time: ${dg.time} phút`,
-        )
+        .map((dg, i) => {
+          let endTimeDisplay = 'N/A';
+          if (dg.endTime) {
+            endTimeDisplay = dg.endTime.toLocaleString('vi-VN', {
+              timeZone: 'Asia/Ho_Chi_Minh',
+            });
+          }
+          return `ID: ${dg.daugia_id} - ${dg.name} - startPrice: ${dg.startPrice.toLocaleString('vi-VN')}đ - minPrice: ${dg.minPrice.toLocaleString('vi-VN')}đ - stepPrice: ${dg.stepPrice.toLocaleString('vi-VN')}đ - endTime: ${endTimeDisplay}`;
+        })
         .join('\n');
       const context = `Bạn có nhiều phiên đấu giá đang hoạt động:\n${dauGiaNames} \n vui lòng dùng command $start [ID] để bắt đầu phiên đấu giá`;
       return await messageChannel?.reply({
@@ -209,7 +243,11 @@ export class DauGiaStartCommand extends CommandMessage {
     daugia: Daugia,
   ) {
     const now = new Date();
-    const timeUntilTarget = targetTime.getTime() - now.getTime();
+    const nowInVietnam = new Date(
+      now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }),
+    );
+
+    const timeUntilTarget = targetTime.getTime() - nowInVietnam.getTime();
     const thirtyMinutesInMs =
       Number(this.configService.get('TIME_NOTIFICATION')) * 60 * 1000;
 
@@ -244,10 +282,12 @@ export class DauGiaStartCommand extends CommandMessage {
   async startAuctionSession(daugia: Daugia, message: ChannelMessage) {
     const messageChannel = await this.getChannelMessage(message);
 
-    const startTime = new Date();
-    const endTime = new Date(
-      startTime.getTime() + (daugia.time || 15) * 60 * 1000,
+    const now = new Date();
+    const startTime = new Date(
+      now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }),
     );
+    const endTime =
+      daugia.endTime || new Date(startTime.getTime() + 15 * 60 * 1000);
 
     const formatTime = (date: Date) => {
       return date.toLocaleString('vi-VN', {
@@ -299,14 +339,7 @@ export class DauGiaStartCommand extends CommandMessage {
             value: '',
           },
           {
-            name:
-              'Time (minutes): ' +
-              daugia?.time?.toString() +
-              ' phút (' +
-              formatTime(startTime) +
-              ' - ' +
-              formatTime(endTime) +
-              ')',
+            name: 'End Time: ' + formatTime(endTime),
             value: '',
           },
           {
@@ -403,14 +436,7 @@ export class DauGiaStartCommand extends CommandMessage {
               value: '',
             },
             {
-              name:
-                'Time (minutes): ' +
-                daugia?.time?.toString() +
-                ' phút (' +
-                formatTime(startTime) +
-                ' - ' +
-                formatTime(endTime) +
-                ')',
+              name: 'End Time: ' + formatTime(endTime),
               value: '',
             },
             {
@@ -455,6 +481,7 @@ export class DauGiaStartCommand extends CommandMessage {
           channel_id: message.channel_id,
           lastNotify: Date.now(),
         });
+        await this.pruneActiveAuctions();
       }
       return;
     };
@@ -596,12 +623,9 @@ export class DauGiaStartCommand extends CommandMessage {
       this.updateMessageAuction(message);
     };
 
-    const timeout = setTimeout(
-      async () => {
-        await callback(messsageReply);
-      },
-      (daugia.time || 15) * 60 * 1000,
-    );
+    const timeout = setTimeout(async () => {
+      await callback(messsageReply);
+    }, endTime.getTime() - startTime.getTime());
 
     this.schedulerRegistry.addTimeout(timeoutName, timeout);
   }
@@ -652,6 +676,7 @@ export class DauGiaStartCommand extends CommandMessage {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'Asia/Ho_Chi_Minh',
     });
 
     const messageContent =
@@ -667,5 +692,28 @@ export class DauGiaStartCommand extends CommandMessage {
     };
     const mentions = [{ user_id: '1', s: 0, e: 5 }];
     await channel.send(replyMessage, mentions, undefined, true);
+  }
+
+  private async pruneActiveAuctions() {
+    const entries = Array.from(DauGiaStartCommand.activeAuctions.entries());
+    if (entries.length <= 5) return;
+
+    entries.sort((a, b) => b[1].lastNotify - a[1].lastNotify);
+    const toRemove = entries.slice(5);
+
+    for (const [messageId, info] of toRemove) {
+      try {
+        const channel = await this.client.channels.fetch(info.channel_id);
+        const endMsg = await channel.messages.fetch(messageId);
+        if (endMsg) {
+          const content = 'Phiên đấu giá đã cập nhật';
+          await endMsg.update({
+            t: content,
+            mk: [{ type: EMarkdownType.PRE, s: 0, e: content.length }],
+          });
+        }
+      } catch (e) {}
+      DauGiaStartCommand.activeAuctions.delete(messageId);
+    }
   }
 }

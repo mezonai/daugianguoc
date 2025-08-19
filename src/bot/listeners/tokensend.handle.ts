@@ -23,7 +23,7 @@ export class ListenerTokenSend extends BaseQueueProcessor<TokenSentEvent> {
 
   @OnEvent(Events.TokenSend)
   async handleRecharge(tokenEvent: TokenSentEvent) {
-    if (tokenEvent.amount <= 0) return;
+    if (Number(tokenEvent.amount) <= 0) return;
     const botId = process.env.BOT_ID;
     if (!botId) {
       console.error('BOT_ID is not defined');
@@ -48,42 +48,47 @@ export class ListenerTokenSend extends BaseQueueProcessor<TokenSentEvent> {
     try {
       const clan = this.client.clans.get('0');
       const mezonUser = await clan?.users.fetch(tokenEvent.sender_id as string);
-
-      console.log('user', mezonUser);
-
       if (!mezonUser) {
         return;
       }
 
-      // Check if user exists in database
       const dbUser = await this.userRepository.findOne({
         where: { user_id: tokenEvent.sender_id as string },
       });
 
       if (!dbUser) {
-        // User doesn't exist in DB, create new user
-        const newUser = new User();
-        newUser.user_id = tokenEvent.sender_id as string;
-        newUser.username = mezonUser.username || '';
-        newUser.display_name = mezonUser.display_name || '';
-        newUser.amount = amount;
-        newUser.createdAt = Date.now();
+        await this.dataSource.transaction(
+          async (transactionalEntityManager) => {
+            const newUser = new User();
+            newUser.user_id = tokenEvent.sender_id as string;
+            newUser.username = mezonUser.username || '';
+            newUser.display_name = mezonUser.display_name || '';
+            newUser.amount = amount;
+            newUser.createdAt = Date.now();
 
-        await this.userRepository.save(newUser);
-        this.logger.log(`Created new user: ${newUser.user_id}`);
+            await transactionalEntityManager.save(newUser);
+            this.logger.log(`Created new user: ${newUser.user_id}`);
+          },
+        );
       } else {
-        await this.userRepository
-          .createQueryBuilder()
-          .update()
-          .set({ amount: () => 'amount + :amount' })
-          .where('user_id = :user_id', {
-            user_id: tokenEvent.sender_id,
-            amount,
-          })
-          .execute();
+        await this.dataSource.transaction(
+          async (transactionalEntityManager) => {
+            const user = await transactionalEntityManager
+              .getRepository(User)
+              .findOne({
+                where: { user_id: tokenEvent.sender_id as string },
+                lock: { mode: 'pessimistic_write' },
+              });
+
+            if (user) {
+              user.amount += Number(amount);
+              await transactionalEntityManager.save(user);
+            }
+          },
+        );
       }
 
-      const successMessage = `💸Nạp ${tokenEvent.amount.toLocaleString('vi-VN')} token thành công`;
+      const successMessage = `💸Nạp ${amount.toLocaleString('vi-VN')} token thành công`;
       await mezonUser?.sendDM({
         t: successMessage,
         mk: [{ type: EMarkdownType.PRE, s: 0, e: successMessage.length }],
@@ -101,7 +106,7 @@ export class ListenerTokenSend extends BaseQueueProcessor<TokenSentEvent> {
         const mezonUser = await clan?.users.fetch(
           tokenEvent.sender_id as string,
         );
-        const successMessage = `💸Nạp không thành công ! ${tokenEvent.amount.toLocaleString('vi-VN')}  token  sẽ được hoàn lại`;
+        const successMessage = `💸Nạp không thành công ! ${amount.toLocaleString('vi-VN')}  token  sẽ được hoàn lại`;
 
         await Promise.all([
           this.client.sendToken(dataSendToken),
@@ -125,7 +130,7 @@ export class ListenerTokenSend extends BaseQueueProcessor<TokenSentEvent> {
   ): Promise<void> {
     this.logger.error(`Failed to process token recharge:`, {
       transactionId: tokenEvent.transaction_id,
-      amount: tokenEvent.amount,
+      amount: Number(tokenEvent.amount),
       senderId: tokenEvent.sender_id,
       error: error.message,
     });

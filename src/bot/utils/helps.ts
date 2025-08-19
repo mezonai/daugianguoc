@@ -33,3 +33,23 @@ export function getRandomColor(): string {
   const randomIndex = Math.floor(Math.random() * colors.length);
   return colors[randomIndex] || '#F1C40F';
 }
+
+export function toVietnamTime(date: Date): Date {
+  const vietnamTimeString = date.toLocaleString('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+  });
+  return new Date(vietnamTimeString);
+}
+
+export function getCurrentVietnamTime(): Date {
+  const now = new Date();
+  const vietnamTimeString = now.toLocaleString('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+  });
+  return new Date(vietnamTimeString);
+}
+
+export function toVietnamTimeString(date: Date): string {
+  const vietnamTime = toVietnamTime(date);
+  return vietnamTime.toISOString().slice(0, 16);
+}

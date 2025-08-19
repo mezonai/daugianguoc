@@ -117,10 +117,14 @@ export class MylistCommand extends CommandMessage {
       }
 
       const dauGiaNames = listDaugia
-        .map(
-          (dg, i) =>
-            `ID: ${dg.daugia_id} - ${dg.name} - ${dg.isDelete ? 'Đã kết thúc' : 'Đang hoạt động'} - startPrice: ${dg.startPrice.toLocaleString('vi-VN')}đ - minPrice: ${dg.minPrice.toLocaleString('vi-VN')}đ - stepPrice: ${dg.stepPrice.toLocaleString('vi-VN')}đ - time: ${dg.time} phút`,
-        )
+        .map((dg) => {
+          const endTimeDisplay = dg.endTime
+            ? dg.endTime.toLocaleString('vi-VN', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+              })
+            : 'N/A';
+          return `ID: ${dg.daugia_id} - ${dg.name} - ${dg.isDelete ? 'Đã kết thúc' : 'Đang hoạt động'} - startPrice: ${dg.startPrice.toLocaleString('vi-VN')}đ - minPrice: ${dg.minPrice.toLocaleString('vi-VN')}đ - stepPrice: ${dg.stepPrice.toLocaleString('vi-VN')}đ - endTime: ${endTimeDisplay}`;
+        })
         .join('\n');
       const context = `Danh sách phiên đấu giá của bạn:\n${dauGiaNames} \n Sử dụng command $mylist up [ID] để update phiên đấu giá hoặc $mylist del [ID] để xóa phiên đấu giá \n Lưu ý : bạn không thể xóa và update phiên đấu giá đã kết thúc , và đang xảy ra đấu giá`;
       return await messageChannel?.reply({
@@ -134,6 +138,9 @@ export class MylistCommand extends CommandMessage {
 
   async handleUpdateDauGia(daugia: Daugia, message: ChannelMessage) {
     const messageChannel = await this.getChannelMessage(message);
+    const minValue = new Date()
+      .toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' })
+      .slice(0, 16);
     const embed: EmbedProps[] = [
       {
         color: getRandomColor(),
@@ -241,7 +248,7 @@ export class MylistCommand extends CommandMessage {
             },
           },
           {
-            name: 'Time (minutes):',
+            name: ' End Time:',
             value: '',
             inputs: {
               id: `updatedaugia-${message.message_id}-time-ip`,
@@ -249,8 +256,15 @@ export class MylistCommand extends CommandMessage {
               component: {
                 id: `updatedaugia-${message.message_id}-time-plhder`,
                 required: true,
-                defaultValue: daugia.time,
-                type: 'number',
+                defaultValue: daugia.endTime
+                  ? new Date(daugia.endTime)
+                      .toLocaleString('sv-SE', {
+                        timeZone: 'Asia/Ho_Chi_Minh',
+                      })
+                      .slice(0, 16)
+                  : minValue,
+                type: 'datetime-local',
+                min: minValue,
               },
             },
           },

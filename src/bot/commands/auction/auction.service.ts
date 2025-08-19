@@ -40,12 +40,15 @@ export class DauGiaService {
     const name = parsedExtraData[`daugia-${msgId}-name-ip`] || '';
     const image = parsedExtraData[`daugia-${msgId}-image-ip`] || '';
     const priceStr = parsedExtraData[`daugia-${msgId}-startingprice-ip`] || '0';
-    const timeStr = parsedExtraData[`daugia-${msgId}-time-ip`] || '5';
+    const timeStr = parsedExtraData[`daugia-${msgId}-time-ip`] || '';
     const minPriceStr = parsedExtraData[`daugia-${msgId}-minPrice-ip`] || '0';
     const stepPriceStr = parsedExtraData[`daugia-${msgId}-priceStep-ip`] || '0';
 
     const price = Number(priceStr);
-    const time = Number(timeStr);
+    const inputDate = new Date(timeStr);
+    const endTime = new Date(
+      inputDate.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }),
+    );
     const minPrice = Number(minPriceStr);
     const stepPrice = Number(stepPriceStr);
 
@@ -93,9 +96,10 @@ export class DauGiaService {
         '-[Price Step]: phải là số nguyên lớn hơn 0  và không vượt quá 50% giá khởi điểm',
       );
     }
-    if (isNaN(time) || time <= 0 || time % 5 !== 0 || !Number.isInteger(time)) {
+
+    if (!endTime || isNaN(endTime.getTime()) || endTime <= new Date()) {
       errors.push(
-        '-[Time (minutes)]: phải là số nguyên và là bội số của 5 và không vượt quá 1440 phút (24 giờ)',
+        '-[End Time]: phải là thời gian hợp lệ và phải lớn hơn thời gian hiện tại',
       );
     }
 
@@ -120,7 +124,7 @@ export class DauGiaService {
       createby: authId,
       clan_id: clanId,
       startPrice: price,
-      time,
+      endTime,
       minPrice,
       stepPrice,
     });

@@ -32,7 +32,14 @@ export class User {
   @Column({ type: 'text', nullable: true })
   last_message_id: string;
 
-  @Column({ type: 'numeric', nullable: true })
+  @Column({
+    type: 'numeric',
+    nullable: true,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string | null) => (value === null ? null : Number(value)),
+    },
+  })
   last_message_time: number;
 
   @Column({ type: 'text', nullable: true })
@@ -59,13 +66,36 @@ export class User {
   @Column({ default: true })
   buzzNcc8: boolean;
 
-  @Column({ type: 'numeric', nullable: true })
+  @Column({
+    type: 'numeric',
+    nullable: true,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string | null) => (value === null ? null : Number(value)),
+    },
+  })
   createdAt: number;
 
-  @Column({ type: 'numeric', nullable: true, default: 0 })
+  @Column({
+    type: 'numeric',
+    nullable: true,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string | null) => (value === null ? 0 : Number(value)),
+    },
+  })
   amount: number;
 
-  @Column({ type: 'numeric', nullable: true, default: 0 })
+  @Column({
+    type: 'numeric',
+    nullable: true,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string | null) => (value === null ? 0 : Number(value)),
+    },
+  })
   amountUsedSlots: number;
 
   @Column({ type: 'jsonb', nullable: true, default: {} })

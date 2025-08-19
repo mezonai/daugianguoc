@@ -16,7 +16,6 @@ import {
   MEZON_EMBED_FOOTER,
 } from '../../constants/configs';
 import { getRandomColor } from 'src/bot/utils/helps';
-import { min } from 'rxjs';
 
 @Command('daugia')
 export class DauGiaCommand extends CommandMessage {
@@ -121,7 +120,7 @@ export class DauGiaCommand extends CommandMessage {
             },
           },
           {
-            name: 'Time (minutes):',
+            name: ' End Time:',
             value: '',
             inputs: {
               id: `daugia-${message.message_id}-time-ip`,
@@ -129,8 +128,13 @@ export class DauGiaCommand extends CommandMessage {
               component: {
                 id: `daugia-${message.message_id}-time-plhder`,
                 required: true,
-                defaultValue: 15,
-                type: 'number',
+                defaultValue: new Date()
+                  .toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' })
+                  .slice(0, 16),
+                type: 'datetime-local',
+                min: new Date()
+                  .toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' })
+                  .slice(0, 16),
               },
             },
           },

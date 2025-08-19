@@ -34,6 +34,9 @@ export class Daugia {
 
   @Column({ nullable: true })
   time: number;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  endTime: Date;
   @Column({ nullable: true })
   stepPrice: number;
 
