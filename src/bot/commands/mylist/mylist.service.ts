@@ -101,7 +101,13 @@ export class MylistService {
         parsedExtraData[`updatedaugia-${message_id}-priceStep-ip`];
 
       const price = priceStr ? Number(priceStr) : undefined;
-      const time = timeStr ? Number(timeStr) : undefined;
+      const endTime = timeStr
+        ? new Date(
+            new Date(timeStr).toLocaleString('en-US', {
+              timeZone: 'Asia/Ho_Chi_Minh',
+            }),
+          )
+        : undefined;
       const minPrice = minPriceStr ? Number(minPriceStr) : undefined;
       const stepPrice = stepPriceStr ? Number(stepPriceStr) : undefined;
 
@@ -176,10 +182,10 @@ export class MylistService {
         }
       }
 
-      if (time) {
-        if (isNaN(time) || time <= 0 || time % 5 !== 0 || time > 1440) {
+      if (endTime) {
+        if (isNaN(endTime.getTime()) || endTime <= new Date()) {
           validationErrors.push(
-            '[Time (minutes)]: phải là bội số của 5 và không vượt quá 1440 phút (24 giờ)',
+            '[End Time]: phải là thời gian hợp lệ và phải lớn hơn thời gian hiện tại',
           );
         }
       }
@@ -198,7 +204,7 @@ export class MylistService {
       dauGia.image = image !== undefined ? image : dauGia.image;
       dauGia.startPrice = price !== undefined ? price : dauGia.startPrice;
       dauGia.minPrice = minPrice !== undefined ? minPrice : dauGia.minPrice;
-      dauGia.time = time !== undefined ? time : dauGia.time;
+      dauGia.endTime = endTime !== undefined ? endTime : dauGia.endTime;
       dauGia.stepPrice = stepPrice !== undefined ? stepPrice : dauGia.stepPrice;
 
       await this.daugiaRepository.save(dauGia);
