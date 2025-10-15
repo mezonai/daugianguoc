@@ -15,8 +15,13 @@ export class MezonModule {
           provide: MezonClientService,
           useFactory: async (configService: ConfigService) => {
             const token = configService.get<string>('MEZON_TOKEN');
-            if (!token) return null;
-            const client = new MezonClientService(token);
+            const botId = configService.get<string>('BOT_ID');
+            if (!token || !botId) {
+              throw new Error(
+                'MEZON_TOKEN and MEZON_BOT_ID environment variables are required',
+              );
+            }
+            const client = new MezonClientService(botId, token);
 
             await client.initializeClient();
 

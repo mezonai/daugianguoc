@@ -6,8 +6,10 @@ export class MezonClientService {
   private readonly logger = new Logger(MezonClientService.name);
   private client: MezonClient;
 
-  constructor(token: string) {
-    this.client = new MezonClient(token);
+  constructor(botId: string, token: string) {
+    console.log('MezonClientService initialized with botId:', botId);
+    console.log('MezonClientService initialized with token:', token);
+    this.client = new MezonClient({ botId, token });
   }
 
   async initializeClient() {

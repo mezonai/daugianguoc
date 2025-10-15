@@ -21,6 +21,7 @@ import { Daugia } from 'src/bot/models/daugia.entity';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { BillAuction } from 'src/bot/models/billauction.entity';
 import { ConfigService } from '@nestjs/config';
+import { parseVietnamLocalDateTimeString } from 'src/bot/utils/helps';
 
 @Command('start')
 export class DauGiaStartCommand extends CommandMessage {
@@ -63,7 +64,7 @@ export class DauGiaStartCommand extends CommandMessage {
         });
       } else if (args[0] === 'sch' && args[1] && args[2] && args[3]) {
         const dateTimeStr = args.slice(2).join(' ');
-        const scheduledTime = new Date(dateTimeStr + ' GMT+0700');
+        const scheduledTime = parseVietnamLocalDateTimeString(dateTimeStr);
         const daugia = await this.dauGiaRepository.findOne({
           where: {
             createby: {
@@ -101,14 +102,7 @@ export class DauGiaStartCommand extends CommandMessage {
         }
 
         const now = new Date();
-        const nowInVietnam = new Date(
-          now.toLocaleString('en-US', {
-            timeZone: 'Asia/Ho_Chi_Minh',
-          }),
-        );
-
-        const timeUntilTarget =
-          scheduledTime.getTime() - nowInVietnam.getTime();
+        const timeUntilTarget = scheduledTime.getTime() - now.getTime();
         const thirtyMinutesInMs =
           Number(this.configService.get('TIME_NOTIFICATION')) * 60 * 1000;
 
@@ -243,11 +237,7 @@ export class DauGiaStartCommand extends CommandMessage {
     daugia: Daugia,
   ) {
     const now = new Date();
-    const nowInVietnam = new Date(
-      now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }),
-    );
-
-    const timeUntilTarget = targetTime.getTime() - nowInVietnam.getTime();
+    const timeUntilTarget = targetTime.getTime() - now.getTime();
     const thirtyMinutesInMs =
       Number(this.configService.get('TIME_NOTIFICATION')) * 60 * 1000;
 
@@ -283,9 +273,7 @@ export class DauGiaStartCommand extends CommandMessage {
     const messageChannel = await this.getChannelMessage(message);
 
     const now = new Date();
-    const startTime = new Date(
-      now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }),
-    );
+    const startTime = now;
     const endTime =
       daugia.endTime || new Date(startTime.getTime() + 15 * 60 * 1000);
 
