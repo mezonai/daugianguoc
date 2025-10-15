@@ -6,6 +6,7 @@ import { Injectable } from '@nestjs/common';
 import { EmbebButtonType, FuncType } from 'src/bot/constants/configs';
 import { MezonClientService } from 'src/mezon/services/mezon-client.service';
 import { Daugia } from 'src/bot/models/daugia.entity';
+import { parseVietnamLocalDateTimeString } from 'src/bot/utils/helps';
 
 @Injectable()
 export class MylistService {
@@ -102,11 +103,7 @@ export class MylistService {
 
       const price = priceStr ? Number(priceStr) : undefined;
       const endTime = timeStr
-        ? new Date(
-            new Date(timeStr).toLocaleString('en-US', {
-              timeZone: 'Asia/Ho_Chi_Minh',
-            }),
-          )
+        ? parseVietnamLocalDateTimeString(timeStr)
         : undefined;
       const minPrice = minPriceStr ? Number(minPriceStr) : undefined;
       const stepPrice = stepPriceStr ? Number(stepPriceStr) : undefined;

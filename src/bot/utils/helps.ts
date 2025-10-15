@@ -1,3 +1,5 @@
+import { DateTime } from 'luxon';
+
 export function extractMessage(message: string) {
   const args = message.replace('\n', ' ').slice('*'.length).trim().split(/ +/);
   if (args.length > 0) {
@@ -52,4 +54,10 @@ export function getCurrentVietnamTime(): Date {
 export function toVietnamTimeString(date: Date): string {
   const vietnamTime = toVietnamTime(date);
   return vietnamTime.toISOString().slice(0, 16);
+}
+
+export function parseVietnamLocalDateTimeString(input: string): Date {
+  const normalized = input ? input.replace(' ', 'T') : '';
+  const dateTime = DateTime.fromISO(normalized, { zone: 'Asia/Ho_Chi_Minh' });
+  return dateTime.isValid ? dateTime.toUTC().toJSDate() : new Date(NaN);
 }
