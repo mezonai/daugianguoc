@@ -38,7 +38,7 @@
     "ioredis": "^5.6.1",
     "joi": "^17.13.3",
     "luxon": "~3.6.0",
-    "mezon-sdk": "^2.8.20",
+    "mezon-sdk": "^2.8.22",
     "pg": "^8.14.1",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
